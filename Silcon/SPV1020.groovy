@@ -1,9 +1,13 @@
 import br.com.multitec.utils.UiSqlColumn
+import multitec.swing.components.spread.MSpread
+import multitec.swing.components.textfields.MTextFieldString
 import multitec.swing.core.MultitecRootPanel;
 import multitec.swing.components.MCheckBox;
 import multitec.swing.components.MRadioButton;
 import multitec.swing.components.autocomplete.MNavigation
 import javax.swing.JSpinner;
+import br.com.multitec.utils.collections.TableMap
+
 
 import javax.swing.JButton;
 
@@ -36,7 +40,11 @@ public class Script extends sam.swing.ScriptBase{
     }
     private void adicionarEventoBtnGravar(){
         JButton btnGravar = getComponente("btnGravar");
-        btnGravar.addActionListener(e -> verificarChkValeAoSalvar());
+        btnGravar.addActionListener(e -> btnGravarPressed());
+    }
+    private void btnGravarPressed(){
+        verificarChkValeAoSalvar();
+        alterarNomeCashBack();
     }
     private void definirValoresDefault(){
         MCheckBox chkTipoDoc = getComponente("chkTipoDoc");
@@ -70,5 +78,21 @@ public class Script extends sam.swing.ScriptBase{
     private void alterarNumeroDeVias(Integer numVias){
         JSpinner txtVias = getComponente("txtVias");
         txtVias.setValue(numVias);
+    }
+    private void alterarNomeCashBack(){
+        MSpread sprItens = getComponente("sprItens");
+        if(sprItens.getValue().size() == 0) return;
+
+        MTextFieldString txtNomeCashback = getComponente("txtNomeCashback");
+        Integer ultimaSeqCashback = buscarUltimaSequenciaCashback();
+
+        txtNomeCashback.setValue((ultimaSeqCashback + 1).toString());
+    }
+    private Integer buscarUltimaSequenciaCashback(){
+        String sql = "SELECT COALESCE(MAX(dad01nome::int),0) AS ultimaseq FROM dad01 WHERE dad01id > 46890838 ";
+        TableMap tmUltimaSequencia = executarConsulta(sql)[0];
+
+        return tmUltimaSequencia.getInteger("ultimaseq");
+
     }
 }
