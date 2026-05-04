@@ -1,35 +1,30 @@
 import br.com.multitec.utils.collections.TableMap
 import multitec.swing.components.textfields.MTextFieldString
 import multitec.swing.core.MultitecRootPanel
-import sam.model.entities.da.Dad01
-import sam.swing.tarefas.scf.SCF4001;
+
+import javax.swing.JButton;
 
 public class Script extends sam.swing.ScriptBase{
-    MultitecRootPanel tarefa
     @Override
     public void execute(MultitecRootPanel tarefa) {
-        this.tarefa = tarefa;
         MTextFieldString txtDad01nome = getComponente("txtDad01nome");
         txtDad01nome.setEnabled(false);
-    }
 
-    @Override
-    public void preSalvar(boolean salvo) {
-        Dad01 dad01 = (Dad01) ((SCF4001) tarefa).registro;
-        if(dad01.dad01id != null) return;
+        JButton btnGravar = getComponente("btnGravar");
+        btnGravar.addActionListener(e -> btnGravarSelected());
+    }
+    private void btnGravarSelected(){
+        alterarNomeCashback();
+    }
+    private void alterarNomeCashback(){
         MTextFieldString txtDad01nome = getComponente("txtDad01nome");
         Integer ultimaSeqCashback = buscarUltimaSequenciaCashback();
-        txtDad01nome.setValue((ultimaSeqCashback + 1).toString())
+        txtDad01nome.setValue((ultimaSeqCashback + 1).toString());
     }
-
     private Integer buscarUltimaSequenciaCashback(){
         String sql = "SELECT COALESCE(MAX(dad01nome::int),0) AS ultimaseq FROM dad01 ";
         TableMap tmUltimaSequencia = executarConsulta(sql)[0];
 
         return tmUltimaSequencia.getInteger("ultimaseq");
-    }
-
-    @Override
-    public void posSalvar(Long id) {
     }
 }
