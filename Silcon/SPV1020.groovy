@@ -89,7 +89,7 @@ public class Script extends sam.swing.ScriptBase{
         txtNomeCashback.setValue((ultimaSeqCashback + 1).toString());
     }
     private Integer buscarUltimaSequenciaCashback(){
-        String sql = "SELECT COALESCE(MAX(dad01nome::int),0) AS ultimaseq FROM dad01 WHERE dad01id > 46890838 ";
+        String sql = "SELECT COALESCE(MAX(dad01nome::int),0) AS ultimaseq FROM dad01 ";
         TableMap tmUltimaSequencia = executarConsulta(sql)[0];
 
         return tmUltimaSequencia.getInteger("ultimaseq");
