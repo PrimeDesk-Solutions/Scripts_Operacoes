@@ -1,12 +1,12 @@
 /*
     FUNÇÃO:
         1. Deixa o campo de tipo de documento com o código 10 como default na empresa 001 e código 23 como default na empresa 002
-        2. Deixa o campo PPV com o código 000 como default na empresa 001 e 002
+        2. Altera o código do PPV da tela de acordo com o campo customizado do cadastro do usuário logado
         3. Altera a view de busca das entidades (F4)
  */
 
-
 import br.com.multitec.utils.UiSqlColumn
+import br.com.multitec.utils.collections.TableMap
 import multitec.swing.components.MCheckBox
 import multitec.swing.components.autocomplete.MNavigation
 import multitec.swing.core.MultitecRootPanel;
@@ -17,7 +17,7 @@ public class Script extends sam.swing.ScriptBase{
     public void execute(MultitecRootPanel tarefa) {
         this.windowLoadOriginal = tarefa.windowLoad ;
         tarefa.windowLoad = {novoWindowLoad()};
-       definirCamposDefault();
+        definirCamposDefault();
     }
     protected void novoWindowLoad(){
         this.windowLoadOriginal.run();
@@ -40,15 +40,43 @@ public class Script extends sam.swing.ScriptBase{
         MNavigation nvgCca01codigo = getComponente("nvgCca01codigo");
         Long idEmpresa = obterEmpresaAtiva().getAac10id();
         MCheckBox chkConsiderarSomenteDocsVendaComFinAbertos = getComponente("chkConsiderarSomenteDocsVendaComFinAbertos");
+        Long idUser = obterUsuarioLogado().getAab10id();
+        TableMap camposCustomUser = buscarCampoCustomizadosUsuario(idUser);
 
-        if(idEmpresa == 1075797) { // MATRIZ
-            nvgAah01codigo.getNavigationController().setIdValue(584524);
-            nvgCca01codigo.getNavigationController().setIdValue(35527200);
-        }else if(idEmpresa == 2116598 ){ // FILIAL
-            nvgAah01codigo.getNavigationController().setIdValue(36248030);
-            nvgCca01codigo.getNavigationController().setIdValue(35615205);
+        idEmpresa == 1075797 ? nvgAah01codigo.getNavigationController().setIdValue(584524) : nvgAah01codigo.getNavigationController().setIdValue(36248030);
+
+        if(camposCustomUser != null && camposCustomUser.size() > 0){
+            Integer opcaoPPV = camposCustomUser.getTableMap("aab10camposcustom").getInteger("ppv_conclusao");
+
+            Long ppv = null;
+            if(opcaoPPV == 0){ // 000 - Venda Balcão
+                if(idEmpresa == 1075797){
+                    ppv = 35527200;
+                }else{
+                    ppv = 35615205;
+                }
+            }else if(opcaoPPV == 1){ // 001 - Faturamento
+                if(idEmpresa == 1075797){
+                    ppv = 45698319;
+                }else{
+                    ppv = 47847888;
+                }
+            }else{ // 002 - Caixa
+                if(idEmpresa == 1075797){
+                    ppv = 47848055;
+                }else{
+                    ppv = 47848045;
+                }
+            }
+
+            nvgCca01codigo.getNavigationController().setIdValue(ppv);
         }
 
         chkConsiderarSomenteDocsVendaComFinAbertos.setValue(1)
+    }
+    private TableMap buscarCampoCustomizadosUsuario(Long idUser){
+        String sql = "SELECT aab10camposCustom FROM aab10 WHERE aab10id = " + idUser;
+
+        return executarConsulta(sql)[0];
     }
 }
