@@ -1,11 +1,11 @@
 import br.com.multitec.utils.collections.TableMap
 import multitec.swing.components.spread.MSpread
 import multitec.swing.core.MultitecRootPanel
-import com.itextpdf.text.*
-import com.itextpdf.text.pdf.*
+//import com.itextpdf.text.*
+//import com.itextpdf.text.pdf.*
 import javax.swing.JButton
 import java.awt.Desktop;
-import java.io.File;
+//import java.io.File;
 
 
 public class Script extends sam.swing.ScriptBase {
@@ -14,10 +14,17 @@ public class Script extends sam.swing.ScriptBase {
     @Override
     public void execute(MultitecRootPanel tarefa) {
         this.panel = tarefa;
-        criarMenu("Customizado", "Gerar PDF", e -> gerarPDF(), null);
-        criarBotaoGerarPDF();
+//        criarBotaoGerarPDF();
+        reordenarColunas();
+    }
+    private void reordenarColunas(){
+        MSpread sprItens = getComponente("sprItens");
+        sprItens.getColumnIndex("abm01codigo") != -1 ? sprItens.moveColumn(sprItens.getColumnIndex("abm01codigo"), 0) : null;
+        sprItens.getColumnIndex("abm01descr") != -1 ? sprItens.moveColumn(sprItens.getColumnIndex("abm01descr"), 1) : null;
+        sprItens.getColumnIndex("preco") != -1 ? sprItens.moveColumn(sprItens.getColumnIndex("preco"), 2) : null;
     }
 
+    /*
     private void gerarPDF() {
 
         try {
@@ -123,6 +130,8 @@ public class Script extends sam.swing.ScriptBase {
             e.printStackTrace()
         }
     }
+
+     */
     private buscarListaItens(def idsItens){
         String sql = "SELECT abm01codigo as codigo, abm01descr AS descr, abe4001preco AS preco " +
                 "FROM abe4001 " +
