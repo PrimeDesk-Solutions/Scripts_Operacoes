@@ -56,11 +56,13 @@ public class Script extends sam.swing.ScriptBase{
         adicionarEventoPCD();
         adicionarEventoTabelaPreco();
         tarefa.getWindow().getJMenuBar().getMnuArquivo().getMniCancelar().addActionListener(mnu -> this.adicionaEventoESC(mnu));
-        this.windowLoadOriginal = tarefa.windowLoad ;
+        this.windowLoadOriginal = tarefa.windowLoad;
         tarefa.windowLoad = {novoWindowLoad()};
         reordenarColunas();
         ocultarColunaSpread();
-        adicionaBotaoImprimirDocumento();
+//        adicionaBotaoImprimirDocumento();
+        criarMenu("Impressão", "Imprimir Documento", e -> btnImprimirPressed(), null);
+
         adicionarBotaoReordenarColunas();
         desativarBotaoIncluirEndereco(btnIncluirNovoEnderecoEntregaEntidade);
     }
