@@ -48,12 +48,10 @@
     import sam.model.entities.da.Daa0102;
     import multitec.swing.core.utils.WindowUtils;
     import sam.swing.tarefas.sce.SCE1503;
-
-
-
+    import sam.swing.core.window.PanelCadastro
+    import br.com.multitec.utils.ValidacaoException;
     import com.fasterxml.jackson.databind.JsonNode
     import com.fasterxml.jackson.databind.ObjectMapper
-
     import java.time.LocalDate
 
     class SCF0101 extends sam.swing.ScriptBase {
@@ -72,7 +70,17 @@
             txtDaa01dtLcto.setEnabled(false);
             adicionaBotaoImprimirDoc();
             adicionarBotaoEstornarDocumento();
-            criarMenu("Customizado", "Estornar Documento", e -> estornarDocumento(), null);
+            verificarAoExcluir();
+        }
+        private void verificarAoExcluir(){
+            def listaDoCadastro = ((PanelCadastro)tarefa).panelListarCadastro.get();
+            listaDoCadastro.deletar = (id) -> {
+                TableMap tmDoc = executarConsulta("SELECT daa01dtbaixa FROM daa01 WHERE daa01id = " + id.toString())[0];
+
+                tmDoc = tmDoc == null ? new TableMap() : tmDoc;
+
+                if(tmDoc.getDate("daa01dtbaixa") != null ) throw new ValidacaoException("Não foi possível excluir o documento pois o mesmo encontra-se baixado.");
+            }
         }
 
         private void verificaAlteracaoDocumento(){
@@ -124,8 +132,11 @@
                 def departamentos = sprDaa0101s.getValue();
                 def naturezas = sprDaa01011s.getValue();
 
+                Daa01 daa01 = (Daa01) ((MultitecRootPanel) tarefa).registro;
 
-                if(dtPgto == null || dtBaixa == null) throw new RuntimeException("Não é possível estornar um documento não baixado.")
+                if(dtPgto == null || dtBaixa == null) throw new RuntimeException("Não é possível estornar um documento não baixado.");
+                if(daa01 == null || daa01.daa01id == null) interromper("Para estornar é necessário salvar o documento primeiramente.");
+
 
                 if(codOperacao == null) throw new RuntimeException("Necessário informar o código da operação da central de documentos.");
                 if(codTipoDoc == null) throw new RuntimeException("Necessário informar o tipo de documento.");
