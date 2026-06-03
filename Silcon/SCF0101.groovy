@@ -53,6 +53,7 @@
     import com.fasterxml.jackson.databind.JsonNode
     import com.fasterxml.jackson.databind.ObjectMapper
     import java.time.LocalDate
+    import java.util.function.Consumer
 
     class SCF0101 extends sam.swing.ScriptBase {
         MultitecRootPanel tarefa;
@@ -74,12 +75,17 @@
         }
         private void verificarAoExcluir(){
             def listaDoCadastro = ((PanelCadastro)tarefa).panelListarCadastro.get();
+
+            def deletarOriginal = listaDoCadastro.deletar
+
             listaDoCadastro.deletar = (id) -> {
                 TableMap tmDoc = executarConsulta("SELECT daa01dtbaixa FROM daa01 WHERE daa01id = " + id.toString())[0];
 
                 tmDoc = tmDoc == null ? new TableMap() : tmDoc;
 
                 if(tmDoc.getDate("daa01dtbaixa") != null ) throw new ValidacaoException("Não foi possível excluir o documento pois o mesmo encontra-se baixado.");
+
+                deletarOriginal.accept(id);
             }
         }
 
