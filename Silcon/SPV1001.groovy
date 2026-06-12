@@ -84,6 +84,11 @@ public class Script extends sam.swing.ScriptBase{
         adicionarEventoBotaoConcluir();
         adicionarEventoBtnIniciar();
         adicionarCheckComNota();
+        definirCamposDefault();
+    }
+    private void definirCamposDefault(){
+        MCheckBox chkExibirOrcamentos = getComponente("chkExibirOrcamentos");
+        chkExibirOrcamentos.setSelected(true);
     }
     protected void novoWindowLoad(){
         this.windowLoadOriginal.run();
