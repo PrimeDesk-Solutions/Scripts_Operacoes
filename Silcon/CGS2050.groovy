@@ -1,6 +1,8 @@
 import br.com.multitec.utils.collections.TableMap
 import com.amazonaws.protocol.json.internal.JsonMarshaller
 import multitec.swing.core.MultitecRootPanel
+import org.apache.axis2.i18n.Messages
+
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import java.awt.Rectangle;
@@ -16,6 +18,9 @@ import javax.swing.event.TableModelEvent
 import javax.swing.event.TableModelListener
 import java.awt.event.ActionListener
 import sam.dto.cgs.CGS2050DocumentoSCFDto
+import multitec.swing.core.dialogs.Messages;
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import br.com.multitec.utils.UiSqlColumn;
@@ -30,11 +35,14 @@ public class Script extends sam.swing.ScriptBase{
     JLabel lblTotalGeral = new JLabel();
     private boolean preenchendoSpread = false;
     public Runnable windowLoadOriginal;
+    MultitecRootPanel tarefa;
+
 
 
 
     @Override
     public void execute(MultitecRootPanel tarefa) {
+        this.tarefa = tarefa;
         reordenarColunas();
         adicionarEventoBtnAReceber();
         adicionarEventoBtnAPagar();
@@ -45,6 +53,7 @@ public class Script extends sam.swing.ScriptBase{
         alterarPosicoesComponentes();
         adicionarEventoSpread();
         criarComponentes();
+        adicionarEventoSprCashback();
 
         this.windowLoadOriginal = tarefa.windowLoad ;
         tarefa.windowLoad = {novoWindowLoad()};
@@ -260,6 +269,29 @@ public class Script extends sam.swing.ScriptBase{
             uiSqlColumn.addAll(Arrays.asList(abe01codigo, abe01nome, abe01complem, abe01na, abe01ni));
             return uiSqlColumn;
         };
+    }
+    private void adicionarEventoSprCashback(){
+        MSpread sprCashbacks = getComponente("sprCashbacks");
+
+        sprCashbacks.addKeyListener(new KeyAdapter() {
+            @Override
+            void keyPressed(KeyEvent e) {
+                if(e.getKeyCode() == 84 && sprCashbacks.getValue().size() > 0){
+                    totalizarCashback();
+                }
+            }
+        })
+    }
+    private void totalizarCashback(){
+        MSpread sprCashbacks = getComponente("sprCashbacks");
+
+        BigDecimal total = new BigDecimal(0);
+
+        for(int i = 0; i < sprCashbacks.getValue().size(); i++){
+            total = total.add(sprCashbacks.get(i).getSaldo())
+        }
+
+        Messages.create(tarefa.getWindow()).text("Soma dos saldos de cashback: " + total).success();
     }
 
 }
