@@ -28,6 +28,7 @@ import javax.print.PrintService
 import javax.print.PrintServiceLookup;
 import javax.swing.*;
 import javax.swing.JButton
+import java.awt.Desktop
 import java.awt.event.ActionListener
 import java.awt.event.ActionEvent
 import sam.model.entities.ea.Eaa01;
@@ -41,7 +42,10 @@ import java.awt.print.PrinterJob
 import multitec.swing.core.dialogs.Messages;
 import sam.swing.core.window.PanelListarCadastro;
 import sam.swing.core.window.PanelCadastro;
-
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.awt.Desktop
+import multitec.swing.components.textfields.MTextFieldInteger
 
 public class Script extends sam.swing.ScriptBase{
     MultitecRootPanel tarefa
@@ -61,9 +65,9 @@ public class Script extends sam.swing.ScriptBase{
         reordenarColunas();
         ocultarColunaSpread();
 //        adicionaBotaoImprimirDocumento();
-        criarMenu("Impressão", "Imprimir Documento", e -> btnImprimirPressed(), null);
+        criarMenu("Customizado", "Salvar PDF", e -> btnImprimirPressed(), null);
 
-        adicionarBotaoReordenarColunas();
+        //adicionarBotaoReordenarColunas();
         desativarBotaoIncluirEndereco(btnIncluirNovoEnderecoEntregaEntidade);
     }
     private void desativarBotaoIncluirEndereco(JButton btn){
@@ -199,36 +203,29 @@ public class Script extends sam.swing.ScriptBase{
     }
     private void btnImprimirPressed() {
         try {
-            Eaa01 eaa01 = (Eaa01)  ((SCV2002) tarefa).registro;
-            MNavigation nvgAah01codigo = getComponente("nvgAah01codigo");
-            String codTipoDoc = nvgAah01codigo.getValue();
-
-            if(eaa01 == null || eaa01.eaa01id == null) interromper("Antes de imprimir é necessário salvar o documento.");
-
-            Long idDocumento = eaa01.eaa01id;
-
-            WorkerSupplier.create(this.tarefa.getWindow(), {
-                return buscarDadosImpressao(idDocumento, codTipoDoc);
-            })
-                    .initialText("Imprimindo Documento")
-                    .dialogVisible(true)
-                    .success({ bytes ->
-                        enviarDadosParaImpressao(bytes);
-                    })
-                    .start();
+            salvarPDF();
+//            WorkerSupplier.create(this.tarefa.getWindow(), {
+//                return buscarDadosImpressao(idDocumento, codTipoDoc);
+//            })
+//                    .initialText("Imprimindo Documento")
+//                    .dialogVisible(true)
+//                    .success({ bytes ->
+//                        enviarDadosParaImpressao(bytes);
+//                    })
+//                    .start();
         } catch (Exception err) {
             ErrorDialog.defaultCatch(this.tarefa.getWindow(), err);
         }
     }
-    private byte[] buscarDadosImpressao(Long idDocumento, String codTipoDoc) {
-        MNavigation nvgAbd01codigo = getComponente("nvgAbd01codigo");
-        String caminhoRelatorio = nvgAbd01codigo.getValue() != "20006" ? buscarCaminhoRelatorio(codTipoDoc) : "Silcon.relatorios.srf.SRF_Impressao_Documento_Interno_S_Desc";
-        String json = "{\"nome\":\""+caminhoRelatorio+"\",\"filtros\":{\"eaa01id\":"+idDocumento+"}}"
-
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode obj = mapper.readTree(json);
-        return HttpRequest.create().controllerEndPoint("relatorio").methodEndPoint("gerarRelatorio").parseBody(obj).post().getResponseBody()
-    }
+//    private byte[] buscarDadosImpressao(Long idDocumento, String codTipoDoc) {
+//        MNavigation nvgAbd01codigo = getComponente("nvgAbd01codigo");
+//        String caminhoRelatorio = nvgAbd01codigo.getValue() != "20006" ? buscarCaminhoRelatorio(codTipoDoc) : "Silcon.relatorios.srf.SRF_Impressao_Documento_Interno_S_Desc";
+//        String json = "{\"nome\":\""+caminhoRelatorio+"\",\"filtros\":{\"eaa01id\":"+idDocumento+"}}"
+//
+//        ObjectMapper mapper = new ObjectMapper();
+//        JsonNode obj = mapper.readTree(json);
+//        return HttpRequest.create().controllerEndPoint("relatorio").methodEndPoint("gerarRelatorio").parseBody(obj).post().getResponseBody()
+//    }
     private String buscarCaminhoRelatorio(String codTipoDoc){
         String sql = "SELECT aah01formRelDoc FROM aah01 WHERE aah01codigo = '" + codTipoDoc + "'";
 
@@ -239,78 +236,140 @@ public class Script extends sam.swing.ScriptBase{
         return tmTipoDoc.getString("aah01formRelDoc");
     }
 
-    protected void enviarDadosParaImpressao(byte[] bytes) {
+//    protected void enviarDadosParaImpressao(byte[] bytes) {
+//        try {
+//            if(bytes == null || bytes.length == 0) {
+//                interromper("Não foi encontrado o relatório ou parametrizações para a impressão.");
+//            }
+//
+//            PrintService myService = escolherImpressora();
+//
+//            WorkerRunnable load = WorkerRunnable.create(this.tarefa.getWindow());
+//            load.dialogVisible(true);
+//            load.initialText("Enviando Documento para impressão");
+//            load.runnable({
+//                try {
+//                    PDDocument document = PDDocument.load(bytes);
+//                    PrinterJob job = PrinterJob.getPrinterJob();
+//                    job.setPageable(new PDFPageable(document));
+//                    job.setPrintService(myService);
+//                    job.setCopies(1);
+//                    job.setJobName("DANFE");
+//                    job.print();
+//                    document.close();
+//                }catch (Exception err) {
+//                    interromper("Erro ao imprimir Documento. Verifique a impressora utilizada.");
+//                }
+//            });
+//            load.start();
+//
+//        }catch (Exception err) {
+//            ErrorDialog.defaultCatch(this.tarefa.getWindow(), err, "Erro ao enviar dados para impressão.");
+//        }
+//    }
+//
+//    protected PrintService escolherImpressora() {
+//        PrintService myService = null;
+//
+//        PrintService[] ps = PrintServiceLookup.lookupPrintServices(DocFlavor.SERVICE_FORMATTED.PAGEABLE, null);
+//        if (ps.length == 0) {
+//            throw new ValidacaoException("Não foram encontradas impressoras.");
+//        }else {
+//            String nomeImpressoraComum = null;
+//
+//            if(ps.length == 1) {
+//                nomeImpressoraComum = ps[0].getName();
+//            }else {
+//                JComboBox<String> jcb = new JComboBox<>();
+//
+//                for (PrintService printService : ps) {
+//                    jcb.addItem(printService.getName());
+//                }
+//
+//                JOptionPane.showMessageDialog(null, jcb, "Selecione a impressora", JOptionPane.QUESTION_MESSAGE);
+//
+//                if (jcb.getSelectedItem() == null) {
+//                    throw new ValidacaoException("Nenhuma impressora selecionada.");
+//                }
+//
+//                nomeImpressoraComum = (String)jcb.getSelectedItem();
+//            }
+//
+//            for (PrintService printService : ps) {
+//                if (printService.getName().equalsIgnoreCase(nomeImpressoraComum)) {
+//                    myService = printService;
+//                    break;
+//                }
+//            }
+//
+//            if (myService == null) {
+//                throw new ValidacaoException("Nenhuma impressora selecionada.");
+//            }
+//        }
+//
+//        return myService;
+//    }
+
+    /*
+        NOVO METODO DE IMPRESSÃO PARA TESTE DE TRAVAMENTO
+     */
+    void salvarPDF() {
         try {
-            if(bytes == null || bytes.length == 0) {
-                interromper("Não foi encontrado o relatório ou parametrizações para a impressão.");
-            }
+            Eaa01 eaa01 = (Eaa01)  ((SCV2002) tarefa).registro;
+            if(eaa01 == null || eaa01.eaa01id == null) interromper("Antes de gerar o PDF é necessário salvar o documento.");
 
-            PrintService myService = escolherImpressora();
+            MTextFieldInteger txtAbb01num = getComponente("txtAbb01num");
+            Integer numDoc = txtAbb01num.getValue()
+            MNavigation nvgAah01codigo = getComponente("nvgAah01codigo");
+            String codTipoDoc = nvgAah01codigo.getValue();
+            Long idDocumento = eaa01.eaa01id;
+            def empresa = obterEmpresaAtiva().aac10na
 
-            WorkerRunnable load = WorkerRunnable.create(this.tarefa.getWindow());
-            load.dialogVisible(true);
-            load.initialText("Enviando Documento para impressão");
-            load.runnable({
-                try {
-                    PDDocument document = PDDocument.load(bytes);
-                    PrinterJob job = PrinterJob.getPrinterJob();
-                    job.setPageable(new PDFPageable(document));
-                    job.setPrintService(myService);
-                    job.setCopies(1);
-                    job.setJobName("DANFE");
-                    job.print();
-                    document.close();
-                }catch (Exception err) {
-                    interromper("Erro ao imprimir Documento. Verifique a impressora utilizada.");
-                }
-            });
-            load.start();
+            byte[] pdfBytes = buscarDadosImpressao(idDocumento, codTipoDoc)
 
-        }catch (Exception err) {
-            ErrorDialog.defaultCatch(this.tarefa.getWindow(), err, "Erro ao enviar dados para impressão.");
+            String caminhoArquivo = buscarCaminhoArquivo() == null ? System.getProperty("user.home") + "/Downloads/Orçamento"+"-"+numDoc+".pdf" : buscarCaminhoArquivo() + "\\Orçamento-" + numDoc + ".pdf";
+
+            Files.write(Paths.get(caminhoArquivo), pdfBytes)
+            File pdfFile = new File(caminhoArquivo);
+
+            abrirPastaArquivo(pdfFile)
+
+        } catch (IOException e) {
+            e.printStackTrace()
         }
     }
 
-    protected PrintService escolherImpressora() {
-        PrintService myService = null;
+    private byte[] buscarDadosImpressao(Long idDocumento, String codTipoDoc) {
+        MNavigation nvgAbd01codigo = getComponente("nvgAbd01codigo");
 
-        PrintService[] ps = PrintServiceLookup.lookupPrintServices(DocFlavor.SERVICE_FORMATTED.PAGEABLE, null);
-        if (ps.length == 0) {
-            throw new ValidacaoException("Não foram encontradas impressoras.");
-        }else {
-            String nomeImpressoraComum = null;
+        String caminhoRelatorio = nvgAbd01codigo.getValue() != "20006" ? buscarCaminhoRelatorio(codTipoDoc) : "Silcon.relatorios.srf.SRF_Impressao_Documento_Interno_S_Desc";
 
-            if(ps.length == 1) {
-                nomeImpressoraComum = ps[0].getName();
-            }else {
-                JComboBox<String> jcb = new JComboBox<>();
+        String json = "{\"nome\":\""+caminhoRelatorio+"\",\"filtros\":{\"eaa01id\":"+idDocumento+"}}"
 
-                for (PrintService printService : ps) {
-                    jcb.addItem(printService.getName());
-                }
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode obj = mapper.readTree(json);
+        def result =  HttpRequest.create().controllerEndPoint("relatorio").methodEndPoint("gerarRelatorio").parseBody(obj).post().getResponseBody()
 
-                JOptionPane.showMessageDialog(null, jcb, "Selecione a impressora", JOptionPane.QUESTION_MESSAGE);
+        return result
+    }
 
-                if (jcb.getSelectedItem() == null) {
-                    throw new ValidacaoException("Nenhuma impressora selecionada.");
-                }
-
-                nomeImpressoraComum = (String)jcb.getSelectedItem();
-            }
-
-            for (PrintService printService : ps) {
-                if (printService.getName().equalsIgnoreCase(nomeImpressoraComum)) {
-                    myService = printService;
-                    break;
-                }
-            }
-
-            if (myService == null) {
-                throw new ValidacaoException("Nenhuma impressora selecionada.");
-            }
+    private static void abrirPastaArquivo(File pdfFile) {
+        try {
+            Desktop.getDesktop().open(pdfFile);
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
+    }
 
-        return myService;
+    private String buscarCaminhoArquivo(){
+        String sql = "SELECT CAST(aab10camposCustom ->> 'caminho_pedidos' AS text) AS caminho FROM aab10 WHERE aab10id = " + obterUsuarioLogado().getAab10id();
+
+        TableMap tmCaminho = executarConsulta(sql)[0];
+
+        if(tmCaminho == null || tmCaminho.size() == 0) return null;
+
+        return tmCaminho.getString("caminho");
+
     }
 
     @Override
