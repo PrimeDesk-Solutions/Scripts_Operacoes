@@ -565,6 +565,10 @@ public class SRF1002 extends sam.swing.ScriptBase{
 
     @Override
     public void preSalvar(boolean salvo) {
+        MNavigation nvgAbd01codigo = getComponente("nvgAbd01codigo");
+        String codPcd = nvgAbd01codigo.getValue();
+
+        if(codPcd == "60000" && obterUsuarioLogado().getAab10id() == 1904684) interromper("O PCD utilizado está incorreto para esse usuário.")
 
     }
 
