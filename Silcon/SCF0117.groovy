@@ -6,7 +6,9 @@ import br.com.multitec.utils.ValidacaoException
 import br.com.multitec.utils.collections.TableMap
 import multitec.swing.core.MultitecRootPanel;
 import multitec.swing.components.autocomplete.MNavigation
-import multitec.swing.components.textfields.MTextFieldLocalDate;
+import multitec.swing.components.textfields.MTextFieldLocalDate
+
+import javax.swing.JButton;
 import java.awt.event.FocusEvent
 import java.awt.event.FocusListener;
 import javax.swing.JTabbedPane
@@ -50,6 +52,8 @@ public class Script extends sam.swing.ScriptBase{
                     chkDaa01aceite.setValue(1);
                 }
             });
+
+            adicionarEventoBtnMostrarDestino()
         } catch (Exception ex){
             interromper(ex.getMessage())
         }
@@ -122,6 +126,22 @@ public class Script extends sam.swing.ScriptBase{
         }catch(Exception e){
             throw new ValidacaoException("Falha ao buscar grupo centralizador a partir da empresa ativa." + e.getMessage())
         }
+    }
+    private void adicionarEventoBtnMostrarDestino(){
+        JButton btnMostrarDestino = getComponente("btnMostrarDestino");
+        btnMostrarDestino.addActionListener(e -> btnMostrarDestinoSelected())
+
+    }
+    private void btnMostrarDestinoSelected(){
+        verificarTipoDoc();
+    }
+
+    private void verificarTipoDoc(){
+        MNavigation nvgAah01codigo = getComponente("nvgAah01codigo");
+        String tipoDoc = nvgAah01codigo.getValue();
+
+        if ("04".equals(tipoDoc) || "16".equals(tipoDoc) || "47".equals(tipoDoc) || "48".equals(tipoDoc)) interromper("Script: Tipo de documento não permitido para essa operação.");
+
     }
 
 }
