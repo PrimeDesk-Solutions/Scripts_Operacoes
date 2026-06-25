@@ -21,7 +21,8 @@ import sam.swing.ScriptBase
 import sam.swing.VariaveisDaSessao
 import sam.swing.tarefas.cgs.CGS0150
 import sam.swing.tarefas.scf.SCF0102
-
+import sam.swing.tarefas.srf.SRF1001
+import javax.swing.Action
 import javax.swing.JButton
 import javax.swing.JPanel
 import javax.swing.table.TableColumn
@@ -35,20 +36,12 @@ import java.time.format.DateTimeFormatter
 class CGS0112 extends ScriptBase {
     MultitecRootPanel tarefa;
     Boolean isAcessarTarefaCGS0112 = isAcessarTarefa("CGS0112");
+    Boolean isAcessarTarefaSRF1001 = isAcessarTarefa("SRF1001");
 
     @Override
     void execute(MultitecRootPanel panel) {
         this.tarefa = panel;
-        criarBotaoAbrirTarefa();
-
-        JButton btnMostrar = getComponente("btnMostrar");
-        MSpread sprDocs = getComponente("sprDocs");
-
-//        for(ActionListener event : btnMostrar.getActionListeners()){
-//            btnMostrar.removeActionListener(event);
-//        }
-//
-//        btnMostrar.addActionListener(e -> preencherSpread(e))
+        criarBotaoAbrirTarefas();
         adicionaEventoCheckMarcar();
         adicionarEventoBtnGravar();
 
@@ -88,7 +81,7 @@ class CGS0112 extends ScriptBase {
         Integer count = 0;
         for(documento in documentos){
             Long idCentral = documento.getLong("abb01id")
-            
+
             if(tmCamposCustomUser.getInteger("userMaster") == 0){ // Usuário não é master, aplica validações
                 if(idCentral == idCentralSelecionado && documento.getInteger("marcar") == 1 && vlrDoc > vlrLimiteCompraUser && marcar && count != linha) throw new RuntimeException("Documentos acima de R\$ " + String.format("%.2f", vlrLimiteCompraUser) + " podem ser aprovados uma unica vez por usuário." )
 
@@ -177,18 +170,60 @@ class CGS0112 extends ScriptBase {
         }
     }
 
-    private void criarBotaoAbrirTarefa() {
+    private void criarBotaoAbrirTarefas() {
+        criarBotaoAbrirSCF();
+        criarBotaoAbrirSRF();
+    }
+    private void criarBotaoAbrirSCF(){
         JPanel pnlDocumentos = getComponente("pnlDocumentos");
         JButton btnAbrirTarefa = new JButton();
-        btnAbrirTarefa.setText("Abrir Doc. Selecionado");
-        btnAbrirTarefa.addActionListener(e -> btnAbrirPressed(e))
-        btnAbrirTarefa.setBounds(1029, 20, 150, 32);
+        btnAbrirTarefa.setText("Abrir SCF");
+        btnAbrirTarefa.addActionListener(e -> btnAbrirSCFPressed(e))
+        btnAbrirTarefa.setBounds(1029, 20, 75, 32);
 
         pnlDocumentos.add(btnAbrirTarefa);
-
     }
+    private void criarBotaoAbrirSRF(){
+        JPanel pnlDocumentos = getComponente("pnlDocumentos");
+        JButton btnAbrirTarefa = new JButton();
+        btnAbrirTarefa.setText("Abrir SRF");
+        btnAbrirTarefa.addActionListener(e -> btnAbrirSRFPressed(e))
+        btnAbrirTarefa.setBounds(1105, 20, 75, 32);
 
-    private void btnAbrirPressed(ActionEvent e) {
+        pnlDocumentos.add(btnAbrirTarefa);
+    }
+    private void btnAbrirSRFPressed(ActionEvent e){
+        MSpread sprDocs = getComponente("sprDocs");
+        Integer row = sprDocs.getSelectedRow();
+        Integer idCentralFinanc = ((TableMap) sprDocs.get(row)).getInteger("abb01id");
+        Integer idDocumento = buscarIdDocumento(idCentralFinanc);
+
+        if(idDocumento == null) interromper("Não foi encontrado documento para o documento financeiro selecionado.");
+
+        if (sprDocs.getValue().size() == 0) interromper("Spread de documentos vazia, importe os documentos.");
+        if (row < 0) interromper("Nenhuma linha selecionada.");
+        if (!isAcessarTarefaSRF1001) interromper("O usuário logado não tem permissão para acessar essa tarefa.")
+
+
+        SRF1001 srf1001 = new SRF1001();
+        WindowUtils.createJDialog(srf1001.getWindow(), srf1001);
+        srf1001.cancelar = () -> srf1001.getWindow().dispose();
+        srf1001.exibirPanelListaCadastro = () -> srf1001.getWindow().dispose();
+        srf1001.editar(idDocumento);
+        srf1001.getWindow().setVisible(true);
+    }
+    private Integer buscarIdDocumento(Integer idCentralFinanc){
+        String sql = "SELECT eaa01id " +
+                    "FROM eaa01 " +
+                    "INNER JOIN abb01 ON abb01id = eaa01central " +
+                    "INNER JOIN abb0102 ON abb0102central = abb01id " +
+                    "WHERE abb0102doc = " + idCentralFinanc;
+
+        TableMap tmDoc = executarConsulta(sql)[0] != null ? executarConsulta(sql)[0] : new TableMap();
+
+        return tmDoc.getInteger("eaa01id");
+    }
+    private void btnAbrirSCFPressed(ActionEvent e) {
         MSpread sprDocs = getComponente("sprDocs");
         Integer row = sprDocs.getSelectedRow();
         String codTipoDoc = ((TableMap) sprDocs.get(row)).getString("aah01codigo");
@@ -201,7 +236,7 @@ class CGS0112 extends ScriptBase {
         if (!isAcessarTarefaCGS0112) interromper("O usuário logado não tem permissão para acessar essa tarefa.")
 
         TableMap tmDocFinanc = buscarDocumentoFinanceiro(codTipoDoc, numDoc, serie, parcela);
-        if(tmDocFinanc.size() == 0) interromper("Falha ao buscar registro.");
+        if(tmDocFinanc == null || tmDocFinanc.size() == 0) interromper("Não foi encontrado documento financeiro.");
         Long idDocFinanc = tmDocFinanc.getLong("daa01id");
 
         SCF0102 scf0102 = new SCF0102();
@@ -221,14 +256,14 @@ class CGS0112 extends ScriptBase {
         String whereParcela = " AND abb01parcela = '" + parcela + "'";
 
         String sql = " SELECT daa01id " +
-                    " FROM daa01 " +
-                    " INNER JOIN abb01 ON abb01id = daa01central "+
-                    " INNER JOIN aah01 ON aah01id = abb01tipo "+
-                    whereNumDoc +
-                    whereTipoDoc +
-                    whereSerie +
-                    whereParcela +
-                    "LIMIT 1"
+                " FROM daa01 " +
+                " INNER JOIN abb01 ON abb01id = daa01central "+
+                " INNER JOIN aah01 ON aah01id = abb01tipo "+
+                whereNumDoc +
+                whereTipoDoc +
+                whereSerie +
+                whereParcela +
+                "LIMIT 1"
 
         return executarConsulta(sql)[0];
     }
