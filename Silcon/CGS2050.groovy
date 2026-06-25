@@ -225,7 +225,8 @@ public class Script extends sam.swing.ScriptBase{
         for(int i = 0; i < vlrSpread.size(); i++ ){
             TableMap jsonDaa01 = vlrSpread.get(i).getDaa01json() != null ? vlrSpread.get(i).getDaa01json() : new TableMap();
             LocalDate dtVctoN =  vlrSpread.get(i).getVencimento();
-            Integer diasAtraso = ChronoUnit.DAYS.between(dtAtual, dtVctoN);
+            LocalDate dtPagamento = vlrSpread.get(i).getPagamento();
+            Integer diasAtraso = dtPagamento == null ? ChronoUnit.DAYS.between(dtAtual, dtVctoN) : ChronoUnit.DAYS.between(dtPagamento, dtVctoN) ;
             diasAtraso < 0 ? jsonDaa01.put("juros", jsonDaa01.getBigDecimal_Zero("juros") * diasAtraso.abs()) : jsonDaa01.put("juros", BigDecimal.ZERO)
             totDesconto += jsonDaa01.getBigDecimal_Zero("desconto");
             totMulta += jsonDaa01.getBigDecimal_Zero("multa");
