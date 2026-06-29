@@ -63,8 +63,24 @@ class Script extends ScriptBase {
     private volatile BigDecimal pesoConsideradoEstavel = null;
     private final int numeroMinimoLeiturasEstaveis = 3;
     private AtomicBoolean pesoProcessadoNestaPesagem = new AtomicBoolean(false);
-    private final BigDecimal limitePesoZero = new BigDecimal("0.200");
+    private final BigDecimal limitePesoZero = new BigDecimal("0.040");
     private int casasDecimais = 3;
+
+    private enum EstadoPesagem {
+        AGUARDANDO_OBJETO,   // balança vazia, esperando item
+        ESTABILIZANDO,       // item detectado, acumulando leituras estáveis
+        PROCESSADO,          // peso aceito e etiqueta criada
+        AGUARDANDO_REMOCAO   // esperando peso cair abaixo do zero para reiniciar
+    }
+
+    private volatile EstadoPesagem estadoPesagem = EstadoPesagem.AGUARDANDO_OBJETO
+    private volatile BigDecimal pesoReferencia   = null   // peso da primeira leitura do ciclo
+    private volatile int        leiturasEstaveis = 0
+
+    private final int           MINIMO_LEITURAS_ESTAVEIS = 3
+    private final BigDecimal    TOLERANCIA               = new BigDecimal("0.002")
+    private final BigDecimal    LIMITE_PESO_ZERO         = new BigDecimal("0.040")
+    private final BigDecimal    FATOR_RESET_PROCESSADO   = new BigDecimal("0.30")
 
 
     @Override
@@ -198,7 +214,7 @@ class Script extends ScriptBase {
             porta.setParity(SerialPort.NO_PARITY);
 
             // MODIFICAÇÃO: Usar TIMEOUT_READ_SEMI_BLOCKING com timeout curto
-            porta.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 500, 0);
+            porta.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 100, 0);
 
             if(!porta.openPort()) throw new RuntimeException("Não foi possível abrir a porta: " + portaComm);
 
@@ -287,58 +303,75 @@ class Script extends ScriptBase {
 
     }
     private synchronized void resetVariaveisDePesagem() {
-        leiturasEstaveisConsecutivas = 0;
-        pesoConsideradoEstavel = null;
-        pesoProcessadoNestaPesagem.set(false);
+        estadoPesagem    = EstadoPesagem.AGUARDANDO_OBJETO
+        pesoReferencia   = null
+        leiturasEstaveis = 0
     }
 
-    private void processarMensagemCompleta(String pesoStr, Script self){
-        try{
-            // Extrair apenas os dígitos numéricos
-            String pesoNumericoStr = pesoStr.replaceAll("[^0-9]", "");
-            if (pesoNumericoStr.isEmpty()) {
-                return; // Ignorar mensagens sem dígitos
-            }
+    private void processarMensagemCompleta(String pesoStr, Script self) {
+        try {
+            String pesoNumericoStr = pesoStr.replaceAll("[^0-9]", "")
+            if (pesoNumericoStr.isEmpty()) return
 
-            // Formatar o peso com casas decimais
-            String tempPesoFormatado;
+            String tempPesoFormatado
             if (pesoNumericoStr.length() <= casasDecimais) {
-                tempPesoFormatado = "0." + pesoNumericoStr.padLeft(casasDecimais + 1, '0');
+                tempPesoFormatado = "0." + pesoNumericoStr.padLeft(casasDecimais + 1, '0')
             } else {
-                String parteInteira = pesoNumericoStr.substring(0, pesoNumericoStr.length() - casasDecimais);
-                String parteDecimal = pesoNumericoStr.substring(pesoNumericoStr.length() - casasDecimais);
-                tempPesoFormatado = parteInteira + "." + parteDecimal;
+                String parteInteira = pesoNumericoStr.substring(0, pesoNumericoStr.length() - casasDecimais)
+                String parteDecimal = pesoNumericoStr.substring(pesoNumericoStr.length() - casasDecimais)
+                tempPesoFormatado = parteInteira + "." + parteDecimal
             }
 
-            BigDecimal pesoLidoAtual = new BigDecimal(tempPesoFormatado);
-            BigDecimal tolerancia = new BigDecimal("0.002")
+            BigDecimal pesoAtual = new BigDecimal(tempPesoFormatado)
 
-            // Lógica de estabilidade
-            synchronized (self){
-                if(pesoProcessadoNestaPesagem.get()){
-                    if(pesoLidoAtual.compareTo(limitePesoZero) <= 0){
-                        resetVariaveisDePesagem();
-                    }
-                }else{
-                    // Lógica de detecção de estabilidade
-                    if(pesoConsideradoEstavel == null ||  pesoLidoAtual.subtract(pesoConsideradoEstavel).abs().compareTo(tolerancia) > 0){
-                        // Peso mudou ou é a primeira leitura
-                        pesoConsideradoEstavel = pesoLidoAtual;
-                        leiturasEstaveisConsecutivas = 1;
-                    }else{
-                        // Peso igual ao anterior, incrementa contador
-                        leiturasEstaveisConsecutivas++;
-                        if(leiturasEstaveisConsecutivas >= numeroMinimoLeiturasEstaveis){
-                            // Peso considerável estável
-                            processaPesoRecebido(tempPesoFormatado);
-                            pesoProcessadoNestaPesagem.set(true);
+            synchronized (self) {
+                switch (estadoPesagem) {
 
+                    case EstadoPesagem.AGUARDANDO_OBJETO:
+                        // Ignora ruído abaixo do limite de zero
+                        if (pesoAtual.compareTo(LIMITE_PESO_ZERO) <= 0) return
+
+                        // Objeto detectado — inicia ciclo de estabilização
+                        pesoReferencia   = pesoAtual
+                        leiturasEstaveis = 1
+                        estadoPesagem    = EstadoPesagem.ESTABILIZANDO
+                        break
+
+                    case EstadoPesagem.ESTABILIZANDO:
+                        // Verifica se o peso variou mais que a tolerância
+                        if (pesoAtual.subtract(pesoReferencia).abs().compareTo(TOLERANCIA) > 0) {
+                            // Peso instável — reinicia contagem com novo valor de referência
+                            pesoReferencia   = pesoAtual
+                            leiturasEstaveis = 1
+                        } else {
+                            leiturasEstaveis++
+                            if (leiturasEstaveis >= MINIMO_LEITURAS_ESTAVEIS) {
+                                // Peso estável confirmado!
+                                estadoPesagem = EstadoPesagem.PROCESSADO
+                                processaPesoRecebido(tempPesoFormatado)
+                            }
                         }
-                    }
+                        break
+
+                    case EstadoPesagem.PROCESSADO:
+                        // Aguarda remoção do objeto — detecta queda expressiva de peso
+                        BigDecimal limiteRemocao = pesoReferencia.multiply(FATOR_RESET_PROCESSADO)
+                        if (pesoAtual.compareTo(limiteRemocao) < 0) {
+                            estadoPesagem = EstadoPesagem.AGUARDANDO_REMOCAO
+                        }
+                        break
+
+                    case EstadoPesagem.AGUARDANDO_REMOCAO:
+                        // Aguarda peso cair abaixo do zero para garantir que a balança está limpa
+                        if (pesoAtual.compareTo(LIMITE_PESO_ZERO) <= 0) {
+                            resetVariaveisDePesagem()  // → volta para AGUARDANDO_OBJETO
+                        }
+                        break
                 }
             }
-        }catch(NumberFormatException e){
-            //ignora os erros de formatos de números e continua
+
+        } catch (NumberFormatException e) {
+            // ignora leitura malformada
         }
     }
     private void  processaPesoRecebido(String pesoRecebido){
@@ -408,9 +441,17 @@ class Script extends ScriptBase {
                     .success((response) -> {
                         sprEtiquetas.addRow(etiqueta);
                         Long abm70id = response.parseResponse(new TypeReference<Long>(){});
-                        byte[] bytes = buscarDadosImpressaoEtiquetas(ctrAam05.getValue().getAam05id(), List.of(abm70id));
-                        PrintService printService = ClientUtils.escolherImpressora(impressoraDefault);
-                        ClientUtils.enviarDadosParaImpressao(bytes, printService, null, "Etiqueta");
+                        SwingUtilities.invokeLater(() -> {
+                            try {
+                                byte[] bytes = buscarDadosImpressaoEtiquetas(
+                                        ctrAam05.getValue().getAam05id(), List.of(abm70id)
+                                );
+                                PrintService printService = ClientUtils.escolherImpressora(impressoraDefault);
+                                ClientUtils.enviarDadosParaImpressao(bytes, printService, null, "Etiqueta");
+                            } catch(Exception ex) {
+                                exibirAtencao("Erro ao imprimir etiqueta: " + ex.getMessage());
+                            }
+                        });
                     })
                     .post();
         }catch(Exception ex){
