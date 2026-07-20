@@ -42,6 +42,8 @@ public class Script extends sam.swing.ScriptBase{
                     Long idPLF = buscarIdPLF('004', idEmpresa);
                     Long idPortador = buscarIdPortador("0001", idEmpresa);
                     Long idOperacao = buscarIdOperacao("01", idEmpresa);
+                    BigDecimal vlrCashback = buscarCashbackCliente(idEntidade);
+                    if(vlrCashback.compareTo(new BigDecimal(0)) > 0 ) exibirInformacao("O cliente selecionado possuí " + vlrCashback.round(2) + " em cashback. Utilize-o caso necessário.")
 
                     nvgAbe01codigo.getNavigationController().setIdValue(idEntidade);
                     nvgAbf20codigoBaixa.getNavigationController().setIdValue(idPLF);
@@ -72,6 +74,11 @@ public class Script extends sam.swing.ScriptBase{
         } catch(Exception ex){
            throw new ValidacaoException("Falha ao buscar entidade: " + ex.getMessage());
         }
+    }
+    private BigDecimal buscarCashbackCliente(Long idEntidade){
+        String sql = "SELECT SUM(COALESCE(dad01saldo, 0.00)) AS saldo FROM dad01 WHERE dad01ent = " + idEntidade;
+        TableMap tmCashback = executarConsulta(sql)[0];
+        return tmCashback != null && tmCashback.size() > 0 ? tmCashback.getBigDecimal_Zero("saldo") : BigDecimal.ZERO;
     }
     private Long buscarIdPLF(String codPLF, Long idEmpresa){
         try{
