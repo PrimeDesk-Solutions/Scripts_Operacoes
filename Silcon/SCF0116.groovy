@@ -10,7 +10,9 @@ import multitec.swing.components.textfields.MTextFieldInteger;
 import multitec.swing.components.textfields.MTextFieldLocalDate;
 import multitec.swing.components.textfields.MTextFieldString;
 
-import javax.swing.JButton;
+import javax.swing.JButton
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter;
 
 public class Script extends sam.swing.ScriptBase {
     @Override
@@ -22,6 +24,8 @@ public class Script extends sam.swing.ScriptBase {
     private void btnGravarPressed() {
         try {
             Long idDocumento = buscarIdDocumento();
+
+            validarContaCorrente(idDocumento)
 
             String sql = "SELECT CAST(daa01json ->> 'user_baixa' AS INTEGER) AS userbaixa FROM daa01 WHERE daa01id = " + idDocumento;
 
@@ -93,5 +97,52 @@ public class Script extends sam.swing.ScriptBase {
         String sql = "SELECT aab10user FROM aab10 WHERE aab10id = " + idUserBaixa;
 
         return executarConsulta(sql)[0].getString("aab10user");
+    }
+    private void validarContaCorrente(Long idDoc){
+        try{
+            String sql = "SELECT dab01id, dab01codigo, dab01nome, CAST(dab01camposcustom ->> 'requer_abertura' AS INTEGER) AS requerAbertura, dab10data " +
+                    "FROM dab10\n" +
+                    "INNER JOIN dab1002 ON dab1002lct = dab10id\n" +
+                    "INNER JOIN abb01 ON abb01id = dab10central\n" +
+                    "INNER JOIN daa01 ON daa01central = abb01id\n" +
+                    "INNER JOIN dab01 ON dab01id = dab1002cc\n" +
+                    "WHERE daa01id = " + idDoc;
+
+            List<TableMap> listContas = executarConsulta(sql);
+            DateTimeFormatter formato = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+            if(listContas != null && listContas.size() > 0){
+                for(conta in listContas) {
+                    boolean estornaDoc = true;
+                    String frase = "";
+                    if (conta.getInteger("requerAbertura") == 0 || conta.getLong("dab01id") == null) continue;
+
+                    TableMap tmFechamento = buscarUltimoFechamentoConta(conta.getLong("dab01id"));
+                    LocalDate dtAbertura = LocalDate.parse(tmFechamento.getString("cca10abertData"), formato);
+                    LocalDate dtFechamento = LocalDate.parse(tmFechamento.getString("cca10fechamData"), formato);
+                    LocalDate dtLcto = conta.getDate("dab10data");
+
+                    if (tmFechamento == null || tmFechamento.size() == 0) continue;
+
+                    if (dtFechamento >= dtLcto) {
+                        estornaDoc = false;
+                        frase = "A data do fechamento da conta " + conta.getString("dab01codigo") + " - " + conta.getString("dab01nome") + " é maior/igual a data do lançamento";
+                    } else if(dtFechamento <= dtLcto && (dtAbertura > dtLcto || dtAbertura == null)){
+                        estornaDoc = false;
+                        frase = "A data de fechamento da conta " + conta.getString("dab01codigo") + " - " + conta.getString("dab01nome") + " é inferior a data do lançamento e não há uma abertura de caixa."
+                    }
+
+                    if(!estornaDoc && !obterUsuarioLogado().aab10custom) throw new ValidacaoException("Não é possível estornar o documento: " + frase )
+                }
+            }
+        } catch (Exception e){
+            throw new ValidacaoException(e.getMessage())
+        }
+    }
+    private TableMap buscarUltimoFechamentoConta(Long idConta){
+        String sql = "SELECT MAX(cca10abertData) AS cca10abertData, MAX(cca10fechamdata) AS cca10fechamData FROM cca10 WHERE cca10cc = " + idConta;
+        TableMap tmFechamento = executarConsulta(sql)[0];
+
+        return tmFechamento;
     }
 }
