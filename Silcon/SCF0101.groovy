@@ -8,17 +8,24 @@
      */
     package scripts
 
+    import com.fasterxml.jackson.core.type.TypeReference
     import multitec.swing.components.autocomplete.MNavigation
     import multitec.swing.components.textfields.MTextFieldInteger
     import multitec.swing.components.textfields.MTextFieldLocalDate
     import multitec.swing.components.textfields.MTextFieldString
     import multitec.swing.components.textfields.MTextFieldBigDecimal
+    import multitec.swing.request.WorkerRequest
+    import org.apache.poi.ss.usermodel.Table
     import org.springframework.validation.annotation.ValidationAnnotationUtils
+    import sam.model.entities.da.Dab10
+    import sam.model.entities.da.Dab1001
+    import sam.model.entities.da.Daa0101
     import sam.model.entities.ea.Eaa01
     import sam.swing.tarefas.scf.SCF0103
     import sam.swing.tarefas.scf.SCF0116
     import sam.swing.tarefas.srf.SRF1001
 
+    import javax.mail.Session
     import java.awt.event.ActionEvent
     import java.awt.event.ActionListener
     import java.awt.print.PrinterJob
@@ -46,6 +53,7 @@
     import sam.swing.tarefas.spv.SPV1001
     import sam.swing.tarefas.scf.SCF0101
     import sam.model.entities.da.Daa01;
+    import sam.model.entities.da.Dab1001;
     import sam.model.entities.da.Daa0102;
     import multitec.swing.core.utils.WindowUtils;
     import sam.swing.tarefas.sce.SCE1503;
@@ -64,6 +72,8 @@
             // Verifica se foi informado departamento ou natureza no documento
             verificarDepartamentosNaturezas();
             //verificaAlteracaoDocumento();
+
+            if(obterUsuarioLogado().getAab10id() == 1895862 || obterUsuarioLogado().getAab10id() == 1 ) replicarDepartamentos()
         }
 
         @Override
@@ -74,6 +84,64 @@
             adicionaBotaoImprimirDoc();
             adicionarBotaoEstornarDocumento();
             verificarAoExcluir();
+            criarMenuCustomizado()
+        }
+        private void criarMenuCustomizado(){
+            criarMenu("Customizado", "Replicar Departamentos", e -> replicarDepartamentos(), null)
+        }
+        private void replicarDepartamentos(){
+            try{
+                MSpread sprDaa0101s = getComponente("sprDaa0101s");
+                Daa01 daa01 = (Daa01) ((MultitecRootPanel) tarefa).registro;
+                Long idLcto = buscarIDLcto(daa01.daa01id);
+
+                if(idLcto == null) interromper("Para replicar dapartamento e naturezas o documento deve haver um lançamento financeiro.");
+
+                criarDepartamentosNaturezas(idLcto, daa01.daa01id);
+
+            } catch(Exception e){
+                interromper(e.getMessage());
+            }
+        }
+        private Long buscarIDLcto(Long idDoc){
+            try{
+                String sql = "SELECT dab10id " +
+                            " FROM dab10 " +
+                            " INNER JOIN abb01 ON abb01id = dab10central "+
+                            " INNER JOIN daa01 ON daa01central = abb01id "+
+                            " WHERE daa01id = " + idDoc;
+
+                TableMap tmLcto = executarConsulta(sql)[0];
+
+
+                return tmLcto.getLong("dab10id");
+            }catch (Exception e){
+                throw new ValidacaoException("Falha ao buscar lançamento " + e.getMessage());
+            }
+        }
+        private void criarDepartamentosNaturezas(Long idLcto, Long idDoc){
+            try{
+                TableMap body = new TableMap()
+                body.put("dab10id",idLcto)
+                body.put("daa01id",idDoc);
+                WorkerRequest.create(tarefa.getWindow())
+                        .initialText("Criando departamentos/Naturezas")
+                        .dialogVisible(true)
+                        .controllerEndPoint("servlet")
+                        .methodEndPoint("run")
+                        .param("name", "Silcon.servlet.SCF_Criar_Departamentos_Naturezas")
+                        .header("ignore-body-decrypt", "true")
+                        .parseBody(body)
+                        .success((response) -> {
+                            Boolean alterado = response.parseResponse(new TypeReference<Boolean>(){});
+                            if(alterado){
+                                exibirInformacao("Departamentos e Naturezas replicados com sucesso!")
+                            }
+                        })
+                        .post();
+            }catch(Exception err){
+                throw new ValidacaoException(err.getMessage());
+            }
         }
         private void verificarAoExcluir(){
             def listaDoCadastro = ((PanelCadastro)tarefa).panelListarCadastro.get();
