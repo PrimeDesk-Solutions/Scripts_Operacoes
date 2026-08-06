@@ -5,11 +5,13 @@
 import br.com.multitec.utils.ValidacaoException
 import br.com.multitec.utils.collections.TableMap
 import br.com.multitec.utils.http.HttpRequest
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import multitec.swing.components.spread.MSpread
 import multitec.swing.core.MultitecRootPanel
 import multitec.swing.core.dialogs.ErrorDialog
+import multitec.swing.request.WorkerRequest
 import multitec.swing.request.WorkerRunnable
 import multitec.swing.request.WorkerSupplier
 import org.apache.pdfbox.pdmodel.PDDocument
@@ -18,6 +20,8 @@ import sam.model.entities.ea.Eaa01
 import sam.swing.tarefas.scv.SCV2001
 import sam.swing.tarefas.srf.SRF1001
 import sam.swing.tarefas.srf.SRF1002
+import multitec.swing.components.textfields.MTextArea
+
 
 import javax.print.DocFlavor
 import javax.print.PrintService
@@ -28,9 +32,13 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel;
 import java.awt.event.ActionListener
 import java.awt.event.ActionEvent
+import java.awt.event.FocusEvent
+import java.awt.event.FocusListener
 import java.awt.print.PrinterJob
 import javax.swing.*;
 import multitec.swing.components.autocomplete.MNavigation
+import groovy.swing.SwingBuilder
+
 
 
 
@@ -45,13 +53,76 @@ public class Script extends sam.swing.ScriptBase{
         this.tarefa = tarefa;
         reordenarColunas();
         adicionaBotaoImprimirDocumento();
+        adicionarEventosEntidades();
     }
     private void reordenarColunas(){
         MSpread sprEaa0103s = getComponente("sprEaa0103s")
 
         sprEaa0103s.getColumnIndex("eaa0103descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103descr"), 3) : null;
     }
+    private adicionarEventosEntidades(){
+        MNavigation nvgAbd01codigo = getComponente("nvgAbd01codigo");
 
+        nvgAbd01codigo.addFocusListener(new FocusListener() {
+            public void focusGained(FocusEvent e) {};
+
+            public void focusLost(FocusEvent e) {
+                if(nvgAbd01codigo.getValue() == null) return;
+                MNavigation nvgAbe01codigo = getComponente("nvgAbe01codigo");
+                String codEntidade = nvgAbe01codigo.getValue();
+
+                if(codEntidade == null) return;
+                Long idEntidade = buscarIdEntidade(codEntidade);
+                buscarTitulosVencidosEntidade(idEntidade);
+
+            }
+        });
+    }
+    private Long buscarIdEntidade(String codEntidade){
+        String sql = "SELECT abe01id FROM abe01 WHERE abe01codigo = '" + codEntidade + "'" //+ idEmpresa.toString();
+        TableMap tmEntidade = executarConsulta(sql)[0];
+        Long idEntidade = tmEntidade.getLong("abe01id");
+
+        return idEntidade;
+    }
+    private void buscarTitulosVencidosEntidade(Long idEntidade){
+        try{
+            TableMap body = new TableMap()
+            body.put("abe01id",idEntidade)
+            WorkerRequest.create(tarefa.getWindow())
+                    .initialText("Buscando Limite de Crédito")
+                    .dialogVisible(false)
+                    .controllerEndPoint("servlet")
+                    .methodEndPoint("run")
+                    .param("name", "Inova.servlet.Buscar_Titulos_Vencidos_Entidade")
+                    .header("ignore-body-decrypt", "true")
+                    .parseBody(body)
+                    .success((response) -> {
+                        Boolean contemTituloVencido = response.parseResponse(new TypeReference<Boolean>(){});
+                        if(!contemTituloVencido) return;
+                        if(contemTituloVencido && !exibirQuestao("Constam títulos vencidos para esse cliente, necessário consultar financeiro. Deseja continuar?")){
+                            throw new ValidacaoException("Operação Cancelada.")
+                        }else {
+                            def swing = new groovy.swing.SwingBuilder();
+                            MTextArea txtEaa01obsUsoInt = getComponente("txtEaa01obsUsoInt");
+                            String strTexto = txtEaa01obsUsoInt.getValue();
+                            swing.edt {
+                                dialog(title:"Observação de Aprovação", size:[500,250], defaultCloseOperation:javax.swing.JFrame.DISPOSE_ON_CLOSE, show:true, modal:true, locationRelativeTo:null) {
+                                    borderLayout()
+                                    lblTexto = label(text:"Consta títulos vencidos. Informe motivo da autorização.", constraints: java.awt.BorderLayout.NORTH)
+                                    scrollPane(){
+                                        txtArea = textArea(text:"", constraints:java.awt.BorderLayout.CENTER, rows:50, columns:65)
+                                    }
+                                    button(text:'Ok', actionPerformed: {txtEaa01obsUsoInt.setValue("Controle: " + txtArea.text); dispose()}, constraints:java.awt.BorderLayout.SOUTH);
+                                }
+                            }
+                        }
+                    })
+                    .post();
+        }catch(Exception err){
+            throw new ValidacaoException(err.getMessage());
+        }
+    }
     private void adicionaBotaoImprimirDocumento(){
         JPanel panel7 = getComponente("panel7");
         def tela = tarefa.getWindow();
@@ -115,7 +186,6 @@ public class Script extends sam.swing.ScriptBase{
 
         return tmTipoDoc.getString("aah01formRelDoc");
     }
-
     protected void enviarDadosParaImpressao(byte[] bytes) {
         try {
             if(bytes == null || bytes.length == 0) {
@@ -147,7 +217,6 @@ public class Script extends sam.swing.ScriptBase{
             ErrorDialog.defaultCatch(this.tarefa.getWindow(), err, "Erro ao enviar dados para impressão.");
         }
     }
-
     protected PrintService escolherImpressora() {
         PrintService myService = null;
 
