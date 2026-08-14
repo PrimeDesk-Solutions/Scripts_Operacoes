@@ -83,7 +83,7 @@ class CGS0112 extends ScriptBase {
             Long idCentral = documento.getLong("abb01id")
 
             if(tmCamposCustomUser.getInteger("userMaster") == 0){ // Usuário não é master, aplica validações
-                if(idCentral == idCentralSelecionado && documento.getInteger("marcar") == 1 && vlrDoc > vlrLimiteCompraUser && marcar && count != linha) throw new RuntimeException("Documentos acima de R\$ " + String.format("%.2f", vlrLimiteCompraUser) + " podem ser aprovados uma unica vez por usuário." )
+                if(idCentral == idCentralSelecionado && documento.getInteger("marcar") == 1 && vlrDoc > vlrLimiteCompraUser && marcar && count != linha) throw new RuntimeException("Documentos acima de R\$ " + String.format("%.2f", vlrLimiteCompraUser) + " podem ser aprovados uma unica vez por esse usuário." )
 
                 if(idCentral == idCentralSelecionado && vlrDoc <= vlrLimiteCompraUser ){
                     if(documento.getInteger("marcar") == 0){
@@ -138,16 +138,15 @@ class CGS0112 extends ScriptBase {
                     String parcela = documento.getString("abb01parcela");
                     BigDecimal valor = documento.getBigDecimal_Zero("abb01valor");
                     Integer marcar = documento.getInteger("marcar");
-                    String key = codTipoDoc + " " + parcela + " " + numDoc.toString();
+                    String key = idCentral.toString();
 
                     if(marcar == 1){
                         // Verifica se o documento selecionado já foi aprovado pelo usuário
                         def tmAprovacoes = executarConsulta("SELECT abb0103user "+
-                                "FROM abb01 "+
-                                "INNER JOIN abb0103 ON abb0103central = abb01id "+
-                                "WHERE abb01num = " + numDoc + " " +
-                                "AND abb01parcela = '" + parcela + "' "+
-                                "AND abb0103user = " + obterUsuarioLogado().getAab10id())
+                                                                            "FROM abb01 "+
+                                                                            "INNER JOIN abb0103 ON abb0103central = abb01id "+
+                                                                            "WHERE abb01id = " + idCentral +
+                                                                            "AND abb0103user = " + obterUsuarioLogado().getAab10id())
 
                         if(tmAprovacoes.size() > 0) throw new RuntimeException("O documento " + numDoc + " parcela " + parcela + " já foi aprovado pelo usuário " + obterUsuarioLogado().getAab10user() + ".")
 
@@ -310,15 +309,15 @@ class CGS0112 extends ScriptBase {
         String whereNumero = ""
         if (chkNumeroValue == 1) {
             whereNumero = numInicial != null && numFinal != null ? " AND abb01num BETWEEN " + numInicial.toString() + " AND " + numFinal.toString() :
-                    numInicial != null && numFinal == null ? " AND abb01num >= " + numInicial.toString() :
-                            numInicial == null && numFinal != null ? " AND abb01num <= " + numFinal.toString() : ""
+                          numInicial != null && numFinal == null ? " AND abb01num >= " + numInicial.toString() :
+                          numInicial == null && numFinal != null ? " AND abb01num <= " + numFinal.toString() : ""
         }
 
         String whereData = "";
         if (chkPeriodoValue == 1) {
             whereData = dtInicial != null && dtFinal != null ? " AND daa01dtVctoR BETWEEN '" + dtInicial.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")).toString() + "' AND '" + dtFinal.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")).toString() + "' " :
-                    dtInicial != null && dtFinal == null ? " AND daa01dtVctoR >= '" + dtInicial.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")).toString() + "' " :
-                            dtInicial == null && dtFinal != null ? " AND daa01dtVctoR <= '" + dtFinal.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")).toString() + "' " : ""
+                        dtInicial != null && dtFinal == null ? " AND daa01dtVctoR >= '" + dtInicial.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")).toString() + "' " :
+                        dtInicial == null && dtFinal != null ? " AND daa01dtVctoR <= '" + dtFinal.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")).toString() + "' " : ""
         }
 
         String campoUser = chkDesaprovar ? ", abb0103user " : "";
