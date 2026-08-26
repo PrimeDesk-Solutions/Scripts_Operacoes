@@ -17,10 +17,17 @@ import multitec.swing.request.WorkerSupplier
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.printing.PDFPageable
 import sam.model.entities.ea.Eaa01
+import sam.model.entities.ea.Eaa0103
 import sam.swing.tarefas.scv.SCV2001
 import sam.swing.tarefas.srf.SRF1001
 import sam.swing.tarefas.srf.SRF1002
 import multitec.swing.components.textfields.MTextArea
+import javax.swing.table.TableColumn;
+import multitec.swing.components.spread.columns.MSpreadColumnBigDecimal;
+import multitec.swing.components.spread.columns.MSpreadColumnString;
+import multitec.swing.components.autocomplete.MNavigationController
+
+
 
 
 import javax.print.DocFlavor
@@ -47,6 +54,14 @@ import groovy.swing.SwingBuilder
 
 public class Script extends sam.swing.ScriptBase{
     MultitecRootPanel tarefa;
+    private JPanel tabFiscal = new JPanel();
+    private JScrollPane scrTabFiscal;
+    private MSpread<TableMap> sprFiscal;
+    private Map<Long, TableMap> mapFiscal = new HashMap<Long, TableMap>();
+
+
+
+
 
     @Override
     public void execute(MultitecRootPanel tarefa) {
@@ -54,7 +69,103 @@ public class Script extends sam.swing.ScriptBase{
         reordenarColunas();
         adicionaBotaoImprimirDocumento();
         adicionarEventosEntidades();
+        criarSpreadETab(tarefa);
     }
+    private void criarSpreadETab (MultitecRootPanel tarefa){
+
+        JTabbedPane tabPedido = getComponente("tabPedido");
+
+        tabPedido.addChangeListener(e -> {
+            int selectedIndex = tabPedido.getSelectedIndex();
+            if (selectedIndex == 8) {
+                calcularAbaFiscal();
+            }
+        });
+
+        tarefa.remove(tabPedido);
+        tarefa.add(tabPedido)
+
+        scrTabFiscal = new JScrollPane();
+        sprFiscal = new MSpread();
+        sprFiscal.setCanInclude(false);
+        sprFiscal.setCanExclude(false);
+        scrTabFiscal.setViewportView(sprFiscal);
+
+        scrTabFiscal.setBounds(3, 3, 1332, 270);
+
+        sprFiscal.clear();
+        sprFiscal.addColumn((TableColumn)(new MSpreadColumnString("cfop")).text("CFOP").widthByCharCount(4).editable(false));
+        sprFiscal.addColumn((TableColumn)(new MSpreadColumnBigDecimal("eaa0103total")).text("Total Doc").maxFractionDigits(6).widthByCharCount(15).editable(false));
+        sprFiscal.addColumn((TableColumn)(new MSpreadColumnBigDecimal("bc_icms")).text("BC ICMS").maxFractionDigits(6).widthByCharCount(15).editable(false));
+        sprFiscal.addColumn((TableColumn)(new MSpreadColumnBigDecimal("aliq_icms")).text("% ICMS").maxFractionDigits(6).widthByCharCount(15).editable(false));
+        sprFiscal.addColumn((TableColumn)(new MSpreadColumnBigDecimal("icms")).text("ICMS").maxFractionDigits(6).widthByCharCount(15).editable(false));
+        sprFiscal.addColumn((TableColumn)(new MSpreadColumnBigDecimal("icms_outras")).text("ICMS Outras").maxFractionDigits(6).widthByCharCount(15).editable(false));
+        sprFiscal.addColumn((TableColumn)(new MSpreadColumnBigDecimal("icms_isento")).text("ICMS Isento").maxFractionDigits(6).widthByCharCount(15).editable(false));
+
+        tabFiscal.add(scrTabFiscal);
+        tabFiscal.setLayout(null);
+        tabPedido.addTab("Fiscal", tabFiscal);
+
+        //Seta o <ENTER> quando escolhido o PCD
+        MNavigationController ctrEaa01pcd = getComponente("ctrEaa01pcd");
+        ctrEaa01pcd.show = ctrEaa01pcd.show.andThen(abf01 -> {
+            if(ctrEaa01pcd.getValue() != null){
+                tarefa.eventosAbd01codigo();
+            }
+        });
+
+    }
+    private void calcularAbaFiscal(){
+        try{
+            Map<String, TableMap> mapAjustes = new HashMap<String, TableMap>();
+            MSpread sprEaa0103s = getComponente("sprEaa0103s");
+            def vlrIcms = BigDecimal.ZERO;
+            def vlrBcIcms = BigDecimal.ZERO;
+            def vlrIcmsOutras = BigDecimal.ZERO;
+            def vlrIcmsIsento = BigDecimal.ZERO;
+            def vlrTotDoc = BigDecimal.ZERO;
+            TableMap valores = new TableMap();
+
+            for(eaa0103 in sprEaa0103s.getValue()){
+                String cfop = eaa0103.eaa0103cfop != null ? eaa0103.eaa0103cfop.aaj15codigo : null;
+                TableMap tmJson = eaa0103.eaa0103json;
+                vlrIcms = tmJson.getBigDecimal_Zero("icms");
+                vlrBcIcms = tmJson.getBigDecimal_Zero("bc_icms");
+                vlrIcmsOutras = tmJson.getBigDecimal_Zero("icms_outras");
+                vlrIcmsIsento = tmJson.getBigDecimal_Zero("icms_isento");
+                vlrTotDoc = eaa0103.eaa0103total;
+                valores = mapAjustes.get(cfop) != null ? mapAjustes.get(cfop) : new TableMap();
+                valores.put("icms", valores.getBigDecimal_Zero("icms") != BigDecimal.ZERO ? vlrIcms + valores.getBigDecimal_Zero("icms") : vlrIcms);
+                valores.put("bc_icms", valores.getBigDecimal_Zero("bc_icms") != BigDecimal.ZERO ? vlrBcIcms + valores.getBigDecimal_Zero("bc_icms") : vlrBcIcms);
+                valores.put("icms_outras", valores.getBigDecimal_Zero("icms_outras") != BigDecimal.ZERO ? vlrIcmsOutras + valores.getBigDecimal_Zero("icms_outras") : vlrIcmsOutras);
+                valores.put("icms_isento", valores.getBigDecimal_Zero("icms_isento") != BigDecimal.ZERO ? vlrIcmsIsento + valores.getBigDecimal_Zero("icms_isento") : vlrIcmsIsento);
+                valores.put("aliq_icms", tmJson.getBigDecimal_Zero("aliq_icms"));
+                valores.put("eaa0103total", valores.getBigDecimal_Zero("eaa0103total") != BigDecimal.ZERO ? vlrTotDoc + valores.getBigDecimal_Zero("eaa0103total") : vlrTotDoc);
+
+                mapAjustes.put(cfop, valores);
+            }
+
+            sprFiscal.clear();
+            int i = 0;
+            if(mapAjustes != null && mapAjustes.size() > 0) {
+                for (String key : mapAjustes.keySet()) {
+                    valores = mapAjustes.get(key);
+                    sprFiscal.addRow();
+                    sprFiscal.setValueAt(key, i, "cfop");
+                    sprFiscal.setValueAt(valores.getBigDecimal_Zero("icms"), i, "icms");
+                    sprFiscal.setValueAt(valores.getBigDecimal_Zero("bc_icms"), i, "bc_icms");
+                    sprFiscal.setValueAt(valores.getBigDecimal_Zero("icms_outras"), i, "icms_outras");
+                    sprFiscal.setValueAt(valores.getBigDecimal_Zero("icms_isento"), i, "icms_isento");
+                    sprFiscal.setValueAt(valores.getBigDecimal_Zero("aliq_icms"), i, "aliq_icms");
+                    sprFiscal.setValueAt(valores.getBigDecimal_Zero("eaa0103total"), i, "eaa0103total");
+                    i++
+                }
+            }
+        }catch(Exception ex){
+            interromper("Erro: " + ex)
+        }
+    }
+
     private void reordenarColunas(){
         MSpread sprEaa0103s = getComponente("sprEaa0103s")
 
