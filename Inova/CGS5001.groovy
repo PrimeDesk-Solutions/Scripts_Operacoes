@@ -5,6 +5,8 @@ import multitec.swing.core.MultitecRootPanel;
 import sam.swing.core.components.json.MJsonPanel
 import javax.swing.JTabbedPane
 import java.awt.Color
+import multitec.swing.components.MComboBox
+
 
 
 public class Script extends sam.swing.ScriptBase{
@@ -26,6 +28,9 @@ public class Script extends sam.swing.ScriptBase{
         MJsonPanel pnlCamposLivresJSON = getComponente("pnlCamposLivresJSON");
         TableMap jsonAbm01 = pnlCamposLivresJSON.getValue();
         MNavigation nvgAbg01codigo = getComponente("nvgAbg01codigo");
+        MComboBox cmbAbm01tipo = getComponente("cmbAbm01tipo");
+
+        if(cmbAbm01tipo.getValue() != 1) return;
 
         if(jsonAbm01 == null || jsonAbm01.size() == 0 && !exibirQuestao("Item sem campo livres informado, deseja salvar mesmo assim?")){
             tabbedPane1.setSelectedIndex(3);
