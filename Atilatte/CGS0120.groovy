@@ -22,8 +22,62 @@ public class Script extends sam.swing.ScriptBase{
     @Override
     public void execute(MultitecRootPanel tarefa) {
         this.tarefa = tarefa;
-        MTextFieldString txtAba20codigo = getComponente("txtAba20codigo");
         adicionarBotaoPreencherFeriados();
+        criarMenuCustomizado()
+    }
+    private void criarMenuCustomizado(){
+        criarMenu("Customizado", "Ruptura", e -> preencherDadosRuptura(), null)
+        criarMenu("Customizado", "Estoque", e -> preencherDadosEstoque(), null)
+    }
+    private void preencherDadosRuptura(){
+        try{
+            MTextFieldString txtAba20codigo = getComponente("txtAba20codigo");
+            if(!"032".equals(txtAba20codigo.getValue().toString())) interromper("Funcionalidade apenas para o repositório de RUPTURA.");
+
+            TableMap body = new TableMap();
+            List<TableMap> feriados = new ArrayList();
+            WorkerRequest.create(tarefa.getWindow())
+                    .initialText("Buscando Dados Ruptura")
+                    .dialogVisible(true)
+                    .controllerEndPoint("servlet")
+                    .methodEndPoint("run")
+                    .param("name", "Atilatte.servlets.CGS_Compor_Rupturas_Repositorio")
+                    .header("ignore-body-decrypt", "true")
+                    .parseBody(body)
+                    .success((response) -> {
+                        List<TableMap> listRupturas = response.parseResponse(new TypeReference<List<TableMap>>(){});
+
+                        if(listRupturas != null && listRupturas.size() > 0){
+                            for(ruptura in listRupturas){
+                                TableMap tmRuptura = new TableMap();
+
+                                tmRuptura.put("data_corte", ruptura.getDate("dataped"));
+                                tmRuptura.put("cod_item", ruptura.getString("abm01codigo"));
+                                tmRuptura.put("descricao_item", ruptura.getString("naitem"));
+                                tmRuptura.put("umu", ruptura.getString("umu"));
+                                tmRuptura.put("qtd_pedido", ruptura.getBigDecimal_Zero("qtdpedido"));
+                                tmRuptura.put("vlr_pedido", ruptura.getBigDecimal_Zero("valorpedido"));
+                                tmRuptura.put("vlr_entregue", ruptura.getBigDecimal_Zero("valorentregue"));
+                                tmRuptura.put("qtd_entregue", ruptura.getBigDecimal_Zero("qtdentregue"));
+                                tmRuptura.put("saldo", ruptura.getBigDecimal_Zero("saldo"));
+                                tmRuptura.put("cod_auxiliar", ruptura.getString("codaux"));
+                                tmRuptura.put("usuario", obterUsuarioLogado().getAab10nome());
+                                tmRuptura.put("data_registro", LocalDate.now().toString().replace("-", ""));
+
+                                preencherSpread(tmRuptura);
+                            }
+                        }
+                    })
+                    .post();
+
+        }catch (Exception err){
+            interromper("Erro ao preecher repositório: " + err)
+        }
+
+    }
+    private void preencherDadosEstoque(){
+        MTextFieldString txtAba20codigo = getComponente("txtAba20codigo");
+        if(!"033".equals(txtAba20codigo.getValue().toString())) interromper("Funcionalidade apenas para o repositório de ESTOQUE.");
     }
     private void adicionarBotaoPreencherFeriados(){
         JPanel panel2 = getComponente("panel2");
@@ -79,11 +133,11 @@ public class Script extends sam.swing.ScriptBase{
             throw new ValidacaoException(err.getMessage());
         }
     }
-    private void preencherSpread(TableMap tmFeriado){
+    private void preencherSpread(TableMap tm){
         MSpread sprAba2001s = getComponente("sprAba2001s");
 
         Aba2001 aba2001 = new Aba2001();
-        aba2001.setAba2001json(tmFeriado);
+        aba2001.setAba2001json(tm);
         sprAba2001s.addRow(aba2001);
         sprAba2001s.refreshAll();
     }
