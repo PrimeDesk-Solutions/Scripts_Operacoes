@@ -27,6 +27,8 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel;
 import java.awt.event.ActionListener
 import java.awt.event.ActionEvent
+import java.awt.event.FocusEvent
+import java.awt.event.FocusListener
 import java.awt.print.PrinterJob
 import javax.swing.*;
 import multitec.swing.components.autocomplete.MNavigation
@@ -42,13 +44,57 @@ public class Script extends sam.swing.ScriptBase{
     @Override
     public void execute(MultitecRootPanel tarefa) {
         this.tarefa = tarefa;
-        reordenarColunas();
+        criarBotao("Ordenar Campos", {reordenarColunasPorUsuario()})
+        adicionarEventoPCD();
+        reordenarColunasPorUsuario();
         adicionaBotaoImprimirDocumento();
     }
-    private void reordenarColunas(){
+
+    private void adicionarEventoPCD(){
+        MNavigation nvgAbd01codigo = getComponente("nvgAbd01codigo");
+        String user = obterUsuarioLogado().getAab10user().toUpperCase();
+
+        nvgAbd01codigo.addFocusListener(new FocusListener() {
+            @Override
+            void focusGained(FocusEvent e) {
+
+            }
+
+            @Override
+            void focusLost(FocusEvent e) {
+                if(nvgAbd01codigo.getValue() != null){
+                    if(user == "DAIANA" || user == "MASTER2") reordenarColunasCompra();
+                }
+            }
+        })
+    }
+    private void reordenarColunasPorUsuario(){
+        String user = obterUsuarioLogado().getAab10user().toUpperCase();
+        if(user == "DAIANA" || user == "MASTER2") reordenarColunasCompra();
+    }
+
+    private void reordenarColunasCompra(){
         MSpread sprEaa0103s = getComponente("sprEaa0103s")
 
-        sprEaa0103s.getColumnIndex("eaa0103descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103descr"), 3) : null;
+        sprEaa0103s.getColumnIndex("eaa0103umComl.aam06codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103umComl.aam06codigo"), 1) : null;
+        sprEaa0103s.getColumnIndex("eaa0103item.abm01tipo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103item.abm01tipo"), 2) : null;
+        sprEaa0103s.getColumnIndex("eaa0103item.abm01codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103item.abm01codigo"), 3) : null;
+        sprEaa0103s.getColumnIndex("eaa0103complem") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103complem"), 4) : null;
+        sprEaa0103s.getColumnIndex("eaa0103qtComl") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103qtComl"), 5) : null;
+        sprEaa0103s.getColumnIndex("eaa0103total") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103total"), 6) : null;
+        sprEaa0103s.getColumnIndex("eaa0103totDoc") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103totDoc"), 7) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.frete_dest") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.frete_dest"), 8) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.aliq_ipi") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.aliq_ipi"), 9) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.aliq_icms") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.aliq_icms"), 10) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.imposto_importacao") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.imposto_importacao"), 11) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.cotacao_dolar") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.cotacao_dolar"), 12) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.unit_convertido") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.unit_convertido"), 13) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.total_convertido") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.total_convertido"), 14) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.frete_dolar") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.frete_dolar"), 15) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.vl_tx_financ") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.vl_tx_financ"), 16) : null;
+        sprEaa0103s.getColumnIndex("eaa0103ncm.abg01codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103ncm.abg01codigo"), 17) : null;
+        sprEaa0103s.getColumnIndex("eaa0103ncm.abg01descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103ncm.abg01descr"), 18) : null;
+        sprEaa0103s.getColumnIndex("eaa0103item.abm01reduzido") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103item.abm01reduzido"), 19) : null;
     }
 
     private void adicionaBotaoImprimirDocumento(){
