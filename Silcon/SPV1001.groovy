@@ -380,7 +380,7 @@ public class Script extends sam.swing.ScriptBase{
     private void adicionarCheckComNota(){
         JPanel pnlItens = getComponente("pnlItens");
         chkNota.setText("Com Nota");
-        chkNota.setBounds(new Rectangle(new Point(1250, 0), chkNota.getPreferredSize()));
+        chkNota.setBounds(new Rectangle(new Point(1150, 0), chkNota.getPreferredSize()));
         pnlItens.add(chkNota);
         chkNota.setValue(0);
         chkNota.setEnabled(false);
