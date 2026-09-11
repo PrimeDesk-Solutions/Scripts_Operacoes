@@ -7,13 +7,15 @@ import br.com.multitec.utils.collections.TableMap
 import multitec.swing.core.MultitecRootPanel;
 import multitec.swing.components.autocomplete.MNavigation
 import multitec.swing.components.textfields.MTextFieldLocalDate
-
+import multitec.swing.components.spread.MSpread
 import javax.swing.JButton;
 import java.awt.event.FocusEvent
 import java.awt.event.FocusListener;
 import javax.swing.JTabbedPane
 import java.time.LocalDate;
 import multitec.swing.components.MCheckBox;
+import multitec.swing.components.textfields.MTextFieldInteger
+
 
 public class Script extends sam.swing.ScriptBase{
     @Override
@@ -30,20 +32,23 @@ public class Script extends sam.swing.ScriptBase{
             MTextFieldLocalDate txtDataBaixa = getComponente("txtDataBaixa");
             MCheckBox chkDaa01aceite = getComponente("chkDaa01aceite");
             MNavigation nvgAbb10codigo = getComponente("nvgAbb10codigo");
+            MSpread sprDoctsOrigem = getComponente("sprDoctsOrigem");
+            List<TableMap> spreadValores = sprDoctsOrigem.getValue()
 
             tabbedPane1.addChangeListener(e ->{ // Trocando de aba
                 int index = tabbedPane1.getSelectedIndex();
                 String titulo = tabbedPane1.getTitleAt(index);
 
                 if(titulo.toUpperCase().equals("DESTINO")){
-                    String codEntidadeOrigem = nvgAbe01codigoIni.getValue();
+                    String codEntidadeOrigem = spreadValores.get(0).entidade.split("-")[0].trim();
                     if(codEntidadeOrigem == null) return;
                     Long idEntidade = buscarIdEntidade(codEntidadeOrigem, idEmpresa);
                     Long idPLF = buscarIdPLF('004', idEmpresa);
                     Long idPortador = buscarIdPortador("0001", idEmpresa);
                     Long idOperacao = buscarIdOperacao("01", idEmpresa);
                     BigDecimal vlrCashback = buscarCashbackCliente(idEntidade);
-                    if(vlrCashback.compareTo(new BigDecimal(0)) > 0 ) exibirInformacao("O cliente selecionado possuí " + vlrCashback.round(2) + " em cashback. Utilize-o caso necessário.")
+                    if(vlrCashback.compareTo(new BigDecimal(0)) > 0 ) exibirInformacao("O cliente selecionado possuí " + vlrCashback.round(2) + " em cashback. Utilize-o caso necessário.");
+                    adicionarEventoTipoDocumento();
 
                     nvgAbe01codigo.getNavigationController().setIdValue(idEntidade);
                     nvgAbf20codigoBaixa.getNavigationController().setIdValue(idPLF);
@@ -59,6 +64,32 @@ public class Script extends sam.swing.ScriptBase{
         } catch (Exception ex){
             interromper(ex.getMessage())
         }
+    }
+    private adicionarEventoTipoDocumento(){
+        MNavigation nvgAah01codigo = getComponente("nvgAah01codigo");
+        MTextFieldInteger txtAbb01num = getComponente("txtAbb01num");
+
+        nvgAah01codigo.addFocusListener(new FocusListener() {
+            @Override
+            void focusGained(FocusEvent e) {}
+
+            @Override
+            void focusLost(FocusEvent e) {
+                if(nvgAah01codigo.getValue() != null){
+                    if(nvgAah01codigo.getValue() != '33' && nvgAah01codigo.getValue() != '34') return;
+                    Integer proximoNum = buscarProximoNumero(nvgAah01codigo.getValue())
+                    txtAbb01num.setValue(proximoNum)
+                }
+            }
+        })
+    }
+    private Long buscarProximoNumero(String codTipoDoc){
+        TableMap tmUltimoNum = executarConsulta("SELECT COALESCE(MAX(abb01num), 0) AS ultimo FROM abb01 INNER JOIN aah01 ON aah01id = abb01tipo WHERE aah01codigo = '" + codTipoDoc + "' ")[0];
+
+        Integer ultimoNum = tmUltimoNum.getInteger("ultimo");
+
+        return ultimoNum + 1;
+
     }
     private Long buscarIdEntidade(String codEntidadeOrigem, Long idEmpresa){
         try{
