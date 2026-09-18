@@ -211,22 +211,32 @@ public class Script extends sam.swing.ScriptBase {
     }
 
     private void adicionarEventoBtnConcluir() {
-        JButton btnConcluirVenda = getComponente("btnConcluirVenda");
-        MRadioButton rdoDocumento = getComponente("rdoDocumento");
-        MNavigation nvgAbf01codigo = getComponente("nvgAbf01codigo");
-        actionEventOriginal = btnConcluirVenda.getActionListeners(); // Armazena os eventos default
+        try{
+            JButton btnConcluirVenda = getComponente("btnConcluirVenda");
+            MRadioButton rdoDocumento = getComponente("rdoDocumento");
+            MNavigation nvgAbf01codigo = getComponente("nvgAbf01codigo");
+            MNavigation nvgAbe01na = getComponente("nvgAbe01na");
+            MRadioButton rdoNFCe65 = getComponente("rdoNFCe65");
+            MNavigation nvgAbe01codigo = getComponente("nvgAbe01codigo");
+            actionEventOriginal = btnConcluirVenda.getActionListeners(); // Armazena os eventos default
 
-        for (evento in actionEventOriginal) {
-            btnConcluirVenda.removeActionListener(evento); // Remove os evento default do botão
-        }
-
-        btnConcluirVenda.addActionListener(new ActionListener() {
-            @Override
-            void actionPerformed(ActionEvent e) {
-                if(rdoDocumento.isSelected()) nvgAbf01codigo.getNavigationController().setIdValue(null)
-                verificarEntidade(e);
+            for (evento in actionEventOriginal) {
+                btnConcluirVenda.removeActionListener(evento); // Remove os evento default do botão
             }
-        })
+
+            btnConcluirVenda.addActionListener(new ActionListener() {
+                @Override
+                void actionPerformed(ActionEvent e) {
+                    Long idEntidade = buscarIdEntidade(nvgAbe01codigo.getValue())
+                    Integer tipoInscricaoEntidade = buscarTipoInscricaoEntidade(idEntidade)
+                    if(rdoNFCe65.isSelected() && tipoInscricaoEntidade == 0) interromper("Não é permitido gerar NFC-e para essa entidade.")
+                    if(rdoDocumento.isSelected()) nvgAbf01codigo.getNavigationController().setIdValue(null)
+                    verificarEntidade(e);
+                }
+            })
+        } catch (Exception e){
+            interromper(e.getMessage())
+        }
     }
 
     private void verificarEntidade(ActionEvent e) {
@@ -388,5 +398,12 @@ public class Script extends sam.swing.ScriptBase {
         Long idEntidade = tmEntidade.getLong("abe01id");
 
         return idEntidade;
+    }
+    private Integer buscarTipoInscricaoEntidade(Long idEntidade){
+        String sql = "SELECT abe01ti FROM abe01 WHERE abe01id = " + idEntidade;
+        TableMap tmEntidade = executarConsulta(sql)[0];
+        if(tmEntidade == null || tmEntidade.size() == 0) throw new ValidacaoException("Tipo da inscrição da entidade não informado. Verifique o cadatro da entidade.")
+
+        return tmEntidade.getInteger("abe01ti");
     }
 }
