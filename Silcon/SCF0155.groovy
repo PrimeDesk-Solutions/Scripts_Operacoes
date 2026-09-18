@@ -13,10 +13,12 @@ import multitec.swing.components.autocomplete.MNavigation
 import multitec.swing.components.spread.MSpread
 import multitec.swing.core.MultitecRootPanel
 import multitec.swing.core.utils.WindowUtils
+import sam.model.entities.ab.Abf40
 import sam.model.entities.da.Daa01
 import sam.model.entities.ab.Abb01
 import sam.model.entities.ab.Abe01
 import sam.model.entities.da.Dab01
+import sam.model.entities.da.Dab1002
 import sam.swing.ScriptBase
 import sam.swing.tarefas.spv.SPV1050
 import br.com.multitec.utils.UiSqlColumn;
@@ -41,6 +43,10 @@ class SCF0155 extends ScriptBase{
     }
     private void btnGravarClicked(){
         verificarContaCorrente();
+        validarSpreadDocumentos();
+        validarFormasPagamentos();
+    }
+    private void validarSpreadDocumentos(){
         MSpread sprDocumentos = getComponente("sprDocumentos");
         if(sprDocumentos == null || sprDocumentos.getValue().size() == 0) return;
 
@@ -50,6 +56,29 @@ class SCF0155 extends ScriptBase{
             Abe01 abe01 = abb01.abb01ent;
 
             if(daa01json.getBigDecimal("vale_consumidor") != null && abe01.abe01codigo != "9999999100") interromper("O campo Vale Consumidor é permitido apenas para CONSUMIDOR.");
+        }
+    }
+    private void validarFormasPagamentos(){
+        try{
+            MSpread sprPgtos = getComponente("sprPgtos");
+            if(sprPgtos.getValue() == null) return;
+
+            Integer countDinheiro = 0;
+            Integer countCheque = 0;
+            Integer countOutrasFormas = 0;
+
+            for(Dab1002 dab1002 in sprPgtos.getValue()){
+                Abf40 abf40 = dab1002.dab1002fp;
+
+                if(abf40.abf40meioPgto == "01") countDinheiro++;
+                if(abf40.abf40meioPgto == "02") countCheque++;
+                if(abf40.abf40meioPgto != "01" && abf40.abf40meioPgto != "02") countOutrasFormas++;
+            }
+
+            if(countOutrasFormas > 0 && (countDinheiro > 0 || countCheque > 0)) throw new ValidacaoException("Não é permitido baixar documentos com as formas de pagamento DINHEIRO/CHEQUE com outras formas de pagamento.")
+
+        } catch (Exception e){
+            interromper("Validação formas pagamento: " + e.getMessage());
         }
     }
     private void inserirBtnAbrirTelaVincularPreVenda(){
