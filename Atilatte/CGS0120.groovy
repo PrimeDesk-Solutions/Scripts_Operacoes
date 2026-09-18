@@ -10,7 +10,14 @@ import multitec.swing.components.spread.MSpread
 import multitec.swing.components.textfields.MTextFieldString
 import multitec.swing.core.MultitecRootPanel
 import multitec.swing.request.WorkerRequest
+import org.apache.poi.ss.usermodel.Table
+import sam.model.entities.ab.Aba20
 import sam.model.entities.ab.Aba2001
+import sam.model.entities.da.Daa01
+
+import javax.mail.Session
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
 import java.time.LocalDate
 
 
@@ -22,17 +29,34 @@ public class Script extends sam.swing.ScriptBase{
     @Override
     public void execute(MultitecRootPanel tarefa) {
         this.tarefa = tarefa;
-        criarMenuCustomizado()
+        adicionarEventoSpread();
+        criarMenuCustomizado();
     }
     private void criarMenuCustomizado(){
-        criarMenu("Customizado", "Ruptura", e -> preencherDadosRuptura(), null)
-        criarMenu("Customizado", "Feriado", e -> preencherFeriados(), null)
+        criarMenu("Customizado", "Ruptura", e -> buscarDadosRuptura(), null)
+        criarMenu("Customizado", "Feriado", e -> buscarFeriados(), null)
     }
-    private void preencherDadosRuptura(){
+    private void adicionarEventoSpread(){
+        MSpread sprAba2001s = getComponente("sprAba2001s");
+        MTextFieldString txtAba20codigo = getComponente("txtAba20codigo");
+        String user = obterUsuarioLogado().getAab10user();
+
+        sprAba2001s.addKeyListener(new KeyAdapter() {
+            @Override
+            void keyPressed(KeyEvent e) {
+                if(e.getKeyCode() == 116 || e.getKeyCode() == 118){
+                    if(txtAba20codigo.getValue() != "032" || user == "MASTER2") return;
+                    interromper("Para esse respositório não é permitido incluir ou excluir linhas da spread.");
+                }
+
+            }
+        })
+    }
+    private void buscarDadosRuptura(){
         try{
-            throw new ValidacaoException("Processo indisponível")
+            throw new ValidacaoException("Processo não disponivel");
             MTextFieldString txtAba20codigo = getComponente("txtAba20codigo");
-            if(!"032".equals(txtAba20codigo.getValue().toString())) interromper("Funcionalidade apenas para o repositório de RUPTURA.");
+            if(!"032".equals(txtAba20codigo.getValue().toString())) throw new ValidacaoException("Funcionalidade apenas para o repositório de RUPTURA.");
 
             TableMap body = new TableMap();
             WorkerRequest.create(tarefa.getWindow())
@@ -67,40 +91,117 @@ public class Script extends sam.swing.ScriptBase{
                             }
                         }
 
-                        if(listRupturas != null && listRupturas.size() > 0) preencherSpread(listNovosRegistros)
+                        if(listRupturas != null && listRupturas.size() > 0) preencherSpreadRuptura(listNovosRegistros)
                     })
                     .post();
 
         }catch (Exception err){
-            interromper("Erro ao preecher repositório: " + err)
+            interromper("Falha ao buscar dados: " + err)
         }
 
     }
-    private boolean verificarRegistroExistente(TableMap registroNovo){
-        MSpread sprAba2001s = getComponente("sprAba2001s");
-        List<Aba2001> listRepositorio = sprAba2001s.getValue();
+    private void preencherSpreadRuptura(List<TableMap> listNovosRegistros) {
+        try{
+            MSpread sprAba2001s = getComponente("sprAba2001s");
+            List<TableMap> registrosAtualizarIncluir = new ArrayList<>();
+            Aba20 aba20 = (Aba20) ((MultitecRootPanel) tarefa).registro;
 
-        if (listRepositorio != null && listRepositorio.size() > 0){
-            for(Aba2001 aba2001 in listRepositorio){
-                TableMap tmAba2001 = aba2001.aba2001json != null ? aba2001.aba2001json : new TableMap();
-                if(registroNovo.getString("cod_auxiliar") == null) return false;
-                if(tmAba2001.getString("cod_auxiliar") == registroNovo.getString("cod_auxiliar")) return true;
 
+            for (TableMap tmRegistroNovo in listNovosRegistros) {
+                Aba2001 aba2001Existente = verificarRegistroExistente(tmRegistroNovo);
+
+                if (aba2001Existente != null) {
+                    TableMap body = new TableMap();
+                    TableMap tmExistente = aba2001Existente.aba2001json != null ? aba2001Existente.aba2001json : new TableMap();
+                    body.putAll(tmRegistroNovo);
+                    body.put("aba2001id", aba2001Existente.aba2001id);
+                    body.put("motivo", tmExistente.getInteger("motivo"));
+                    body.put("sub_motivo", tmExistente.getInteger("sub_motivo"));
+                    body.put("tipo", "atualizar");
+
+                    registrosAtualizarIncluir.add(body);
+                } else {
+                    TableMap body = new TableMap();
+                    body.putAll(tmRegistroNovo);
+                    body.put("aba20id", aba20.aba20id);
+                    body.put("tipo", "incluir");
+                    body.put("motivo", 0);
+                    body.put("sub_motivo", 0);
+
+                    registrosAtualizarIncluir.add(body)
+                }
             }
+
+            if(registrosAtualizarIncluir != null && registrosAtualizarIncluir.size() > 0) atualizarOuIncluirRegistrosRuptura(registrosAtualizarIncluir);
+
+        } catch (Exception e){
+            interromper("Falha ao preecher spread: " + e.getMessage())
         }
     }
-    private void preencherFeriados(){
-        MTextFieldString txtAba20codigo = getComponente("txtAba20codigo");
-        MSpread sprAba2001s = getComponente("sprAba2001s");
-
-        if(!"026".equals(txtAba20codigo.getValue().toString())) interromper("Funcionalidade apenas para o repositório de FERIADOS.");
-
-        sprAba2001s.clear();
-        sprAba2001s.refreshAll();
+    private Aba2001 verificarRegistroExistente(TableMap registroNovo) {
 
         try{
+            MSpread sprAba2001s = getComponente("sprAba2001s");
+
+            List<Aba2001> listJaGravados = sprAba2001s.getValue();
+
+            if (listJaGravados == null || listJaGravados.isEmpty()) {
+                return null;
+            }
+
+            String codAuxiliarNovo = registroNovo.getString("cod_auxiliar");
+
+            for (Aba2001 aba2001 in listJaGravados) {
+
+                TableMap tmAba2001Gravado = aba2001.aba2001json;
+
+                if (tmAba2001Gravado == null) {
+                    continue;
+                }
+
+                String codAuxiliarGravado =
+                        tmAba2001Gravado.getString("cod_auxiliar");
+
+                if (codAuxiliarNovo == codAuxiliarGravado) {
+                    return aba2001;
+                }
+            }
+
+            return null;
+        } catch (Exception e) {
+            throw new ValidacaoException("Falha ao verificar registros: " + e.getMessage());
+        }
+    }
+    private void atualizarOuIncluirRegistrosRuptura(List<TableMap> registrosAtualizarIncluir){
+        try{
+            WorkerRequest.create(tarefa.getWindow())
+                    .initialText("Atualizando registros")
+                    .dialogVisible(true)
+                    .controllerEndPoint("servlet")
+                    .methodEndPoint("run")
+                    .param("name", "Atilatte.servlets.CGS_Atualizar_Incluir_Registro_Ruptura")
+                    .header("ignore-body-decrypt", "true")
+                    .parseBody(registrosAtualizarIncluir)
+                    .success((response) -> {
+                        tarefa.getWindow().getJMenuBar().getMnuArquivo().getMniAtualizar().doClick()
+                    })
+                    .post();
+        } catch (Exception e){
+            throw new ValidacaoException("Erro ao atualizar ou incluir registros: " + e.getMessage())
+        }
+    }
+    private void buscarFeriados(){
+        try{
+            MTextFieldString txtAba20codigo = getComponente("txtAba20codigo");
+            MSpread sprAba2001s = getComponente("sprAba2001s");
+
+            if(!"026".equals(txtAba20codigo.getValue().toString()))
+                throw new ValidacaoException("Funcionalidade apenas para o repositório de FERIADOS.")
+
+            sprAba2001s.clear();
+            sprAba2001s.refreshAll();
+
             TableMap body = new TableMap();
-            List<TableMap> feriados = new ArrayList();
             WorkerRequest.create(tarefa.getWindow())
                     .initialText("Compondo lista de feriados")
                     .dialogVisible(true)
@@ -111,7 +212,6 @@ public class Script extends sam.swing.ScriptBase{
                     .parseBody(body)
                     .success((response) -> {
                         List<TableMap> listFeriados = response.parseResponse(new TypeReference<List<TableMap>>(){});
-                        List<TableMap> listRegistrosNovos = new ArrayList<>();
 
                         if(listFeriados != null && listFeriados.size() > 0){
                             for(feriado in listFeriados){
@@ -122,34 +222,24 @@ public class Script extends sam.swing.ScriptBase{
 
                                     tmFeriado.put("data", data.replace("-",""));
                                     tmFeriado.put("feriado", descrFeriado);
-                                    listRegistrosNovos.add(tmFeriado);
+                                    preencherSpreadFeriados(tmFeriado);
                                 }
                             }
-                            preencherSpread(listRegistrosNovos);
                         }
                     })
                     .post();
 
         }catch(Exception err){
-            throw new ValidacaoException(err.getMessage());
+            interromper("Falha ao buscar dados: " + err.getMessage());
         }
     }
-    private void preencherSpread(List<TableMap> listNovosRegistros){
+    private void preencherSpreadFeriados(TableMap tmNovoRegistro){
         MSpread sprAba2001s = getComponente("sprAba2001s");
-        boolean registroJaExiste = false;
-        for(tmRegistroNovo in listNovosRegistros){
-            registroJaExiste = verificarRegistroExistente(tmRegistroNovo);
-            if (registroJaExiste) continue;
-            Aba2001 aba2001 = new Aba2001();
-            aba2001.setAba2001json(tmRegistroNovo);
-            sprAba2001s.addRow(aba2001);
-            sprAba2001s.refreshAll();
-        }
-
-
-
+        Aba2001 aba2001 = new Aba2001();
+        aba2001.setAba2001json(tmNovoRegistro);
+        sprAba2001s.addRow(aba2001);
+        sprAba2001s.refreshAll();
     }
-
     @Override
     public void preSalvar(boolean salvo) {
     }
