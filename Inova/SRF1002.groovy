@@ -26,10 +26,6 @@ import javax.swing.table.TableColumn;
 import multitec.swing.components.spread.columns.MSpreadColumnBigDecimal;
 import multitec.swing.components.spread.columns.MSpreadColumnString;
 import multitec.swing.components.autocomplete.MNavigationController
-
-
-
-
 import javax.print.DocFlavor
 import javax.print.PrintService
 import javax.print.PrintServiceLookup
@@ -47,11 +43,6 @@ import multitec.swing.components.autocomplete.MNavigation
 import groovy.swing.SwingBuilder
 
 
-
-
-
-
-
 public class Script extends sam.swing.ScriptBase{
     MultitecRootPanel tarefa;
     private JPanel tabFiscal = new JPanel();
@@ -59,14 +50,11 @@ public class Script extends sam.swing.ScriptBase{
     private MSpread<TableMap> sprFiscal;
     private Map<Long, TableMap> mapFiscal = new HashMap<Long, TableMap>();
 
-
-
-
-
     @Override
     public void execute(MultitecRootPanel tarefa) {
         this.tarefa = tarefa;
-        reordenarColunas();
+        reordenarColunasPorUsuario();
+        criarBotao("Ordenar Campos", {reordenarColunasPorUsuario()})
         adicionaBotaoImprimirDocumento();
         adicionarEventosEntidades();
         criarSpreadETab(tarefa);
@@ -166,10 +154,75 @@ public class Script extends sam.swing.ScriptBase{
         }
     }
 
-    private void reordenarColunas(){
+    private void reordenarColunasPorUsuario(){
+        String user = obterUsuarioLogado().getAab10user().toUpperCase();
+        if(user == "AMANDA" || user == "MASTER2") reordenarColunasFaturamento();
+    }
+
+    private void reordenarColunasFaturamento(){
         MSpread sprEaa0103s = getComponente("sprEaa0103s")
 
+        sprEaa0103s.getColumnIndex("eaa0103seq") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103seq"), 0) : null;
+        sprEaa0103s.getColumnIndex("eaa0103item.abm01tipo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103item.abm01tipo"), 1) : null;
+        sprEaa0103s.getColumnIndex("eaa0103item.abm01codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103item.abm01codigo"), 2) : null;
         sprEaa0103s.getColumnIndex("eaa0103descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103descr"), 3) : null;
+        sprEaa0103s.getColumnIndex("colBtnUD") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("colBtnUD"), 4) : null;
+        sprEaa0103s.getColumnIndex("eaa0103umu.aam06codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103umu.aam06codigo"), 5) : null;
+        sprEaa0103s.getColumnIndex("eaa0103umComl.aam06codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103umComl.aam06codigo"), 6) : null;
+        sprEaa0103s.getColumnIndex("eaa0103qtUso") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103qtUso"), 7) : null;
+        sprEaa0103s.getColumnIndex("eaa0103qtComl") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103qtComl"), 8) : null;
+        sprEaa0103s.getColumnIndex("eaa0103unit") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103unit"), 9) : null;
+        sprEaa0103s.getColumnIndex("eaa0103total") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103total"), 10) : null;
+        sprEaa0103s.getColumnIndex("eaa0103totDoc") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103totDoc"), 11) : null;
+        sprEaa0103s.getColumnIndex("eaa0103totFinanc") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103totFinanc"), 12) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.frete_dest") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.frete_dest"), 13) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.outras_despesas") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.outras_despesas"), 14) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.bc_ipi") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.bc_ipi"), 15) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.aliq_ipi") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.aliq_ipi"), 16) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.ipi") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.ipi"), 17) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.bc_icms") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.bc_icms"), 18) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.aliq_icms") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.aliq_icms"), 19) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.icms") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.icms"), 20) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.aliq_pis") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.aliq_pis"), 21) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.bc_pis") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.bc_pis"), 22) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.pis") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.pis"), 23) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.bc_cofins") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.bc_cofins"), 24) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.aliq_cofins") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.aliq_cofins"), 25) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.cofins") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.cofins"), 26) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.ibs_uf_aliq") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.ibs_uf_aliq"), 27) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.cbs_ibs_bc") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.cbs_ibs_bc"), 28) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.vlr_ibs") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.vlr_ibs"), 29) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.vlr_ibsuf") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.vlr_ibsuf"), 30) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.vlr_cbs") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.vlr_cbs"), 31) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.cbs_aliq") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.cbs_aliq"), 32) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.aliq_importacao") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.aliq_importacao"), 33) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.bc_importacao") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.bc_importacao"), 34) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.imposto_importacao") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.imposto_importacao"), 35) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.siscomex_valor") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.siscomex_valor"), 36) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.valor_aduaneiro") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.valor_aduaneiro"), 37) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.peso_liquido") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.peso_liquido"), 38) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.peso_bruto") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.peso_bruto"), 39) : null;
+        sprEaa0103s.getColumnIndex("eaa0103json.volumes") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103json.volumes"), 40) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cfop.aaj15codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cfop.aaj15codigo"), 41) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cfop.aaj15descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cfop.aaj15descr"), 42) : null;
+        sprEaa0103s.getColumnIndex("eaa0103ncm.abg01codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103ncm.abg01codigo"), 43) : null;
+        sprEaa0103s.getColumnIndex("eaa0103ncm.abg01descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103ncm.abg01descr"), 44) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstIcms.aaj10codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstIcms.aaj10codigo"), 45) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstIcms.aaj10descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstIcms.aaj10descr"), 46) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstIpi.aaj11codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstIpi.aaj11codigo"), 47) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstIpi.aaj11descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstIpi.aaj11descr"), 48) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstPis.aaj12codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstPis.aaj12codigo"), 49) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstPis.aaj12descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstPis.aaj12descr"), 50) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstCofins.aaj13codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstCofins.aaj13codigo"), 51) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstCofins.aaj13descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstCofins.aaj13descr"), 52) : null;
+        sprEaa0103s.getColumnIndex("eaa0103clasTribCbsIbs.aaj07codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103clasTribCbsIbs.aaj07codigo"), 53) : null;
+        sprEaa0103s.getColumnIndex("eaa0103clasTribCbsIbs.aaj07descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103clasTribCbsIbs.aaj07descr"), 54) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstCbsIbs.aaj09codigo") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstCbsIbs.aaj09codigo"), 55) : null;
+        sprEaa0103s.getColumnIndex("eaa0103cstCbsIbs.aaj09descr") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103cstCbsIbs.aaj09descr"), 56) : null;
+        sprEaa0103s.getColumnIndex("eaa0103codBenef") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103codBenef"), 57) : null;
+        sprEaa0103s.getColumnIndex("eaa0103dtEntrega") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103dtEntrega"), 58) : null;
+        sprEaa0103s.getColumnIndex("eaa0103pcNum") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103pcNum"), 59) : null;
+        sprEaa0103s.getColumnIndex("eaa0103item.abm01reduzido") != -1 ? sprEaa0103s.moveColumn(sprEaa0103s.getColumnIndex("eaa0103item.abm01reduzido"), 60) : null;
     }
     private adicionarEventosEntidades(){
         MNavigation nvgAbd01codigo = getComponente("nvgAbd01codigo");
