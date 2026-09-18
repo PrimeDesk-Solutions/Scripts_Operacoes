@@ -45,7 +45,7 @@ public class Script extends sam.swing.ScriptBase{
         threadDocumentos = new Thread(() -> {
             while (!Thread.currentThread().isInterrupted()){
                 try{
-                    threadDocumentos.sleep(4000L);
+                    threadDocumentos.sleep(3000L);
                     excluirDocumentos();
 
                 }catch (InterruptedException e){
@@ -81,7 +81,7 @@ public class Script extends sam.swing.ScriptBase{
             void windowClosed(WindowEvent e) {
                 super.windowClosed(e);
                 threadDocumentos.interrupt();
-                exibirInformacao("Thread encerrada.")
+                //exibirInformacao("Thread encerrada.")
             }
 
             @Override
