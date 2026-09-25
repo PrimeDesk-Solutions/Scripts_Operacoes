@@ -34,6 +34,8 @@ import java.awt.event.ActionEvent
 import java.awt.print.PrinterJob
 import javax.swing.*;
 import multitec.swing.components.autocomplete.MNavigation
+import sam.model.entities.ea.Eaa0103;
+import sam.model.entities.ea.Eaa01034;
 
 public class Script extends sam.swing.ScriptBase{
     MultitecRootPanel tarefa;
@@ -47,6 +49,7 @@ public class Script extends sam.swing.ScriptBase{
         this.tarefa = tarefa;
         reordenarColunasPorUsuario();
         criarBotao("Ordenar Campos", {reordenarColunasPorUsuario()})
+        criarBotao("Replicar Dados Importação", {replicarDadosImportacao()})
         adicionaBotaoImprimirDocumento();
         criarSpreadETab(tarefa);
     }
@@ -351,6 +354,59 @@ public class Script extends sam.swing.ScriptBase{
         }
 
         return myService;
+    }
+
+    private void replicarDadosImportacao() {
+        try {
+            def sprEaa0103s = getComponente("sprEaa0103s");
+
+            if(sprEaa0103s.getRowCount() == 0) return;
+
+            int row = sprEaa0103s.getSelectedRow();
+            if(row < 0) return;
+
+            Eaa0103 eaa0103 = sprEaa0103s.get(row);
+            if(eaa0103.eaa01034s == null || eaa0103.eaa01034s.size() == 0) return;
+
+            for(int i = 0; i < sprEaa0103s.getRowCount(); i++) {
+                if(i == row) continue;
+
+                List<Eaa01034> eaa01034sNovos = new ArrayList<>();
+
+                for(Eaa01034 eaa01034 : eaa0103.eaa01034s) {
+                    Eaa01034 eaa01034Novo = new Eaa01034();
+
+                    eaa01034Novo.eaa01034num = eaa01034.eaa01034num;
+                    eaa01034Novo.eaa01034drawback = eaa01034.eaa01034drawback;
+                    eaa01034Novo.eaa01034dtReg = eaa01034.eaa01034dtReg;
+                    eaa01034Novo.eaa01034local = eaa01034.eaa01034local;
+                    eaa01034Novo.eaa01034ufLocal = eaa01034.eaa01034ufLocal;
+                    eaa01034Novo.eaa01034dtDesemb = eaa01034.eaa01034dtDesemb;
+                    eaa01034Novo.eaa01034codExp = eaa01034.eaa01034codExp;
+                    eaa01034Novo.eaa01034viaTransp = eaa01034.eaa01034viaTransp;
+                    eaa01034Novo.eaa01034afrmm = eaa01034.eaa01034afrmm;
+                    eaa01034Novo.eaa01034formaImp = eaa01034.eaa01034formaImp;
+                    eaa01034Novo.eaa01034cnpjAdq = eaa01034.eaa01034cnpjAdq;
+                    eaa01034Novo.eaa01034ufAdq = eaa01034.eaa01034ufAdq;
+                    eaa01034Novo.eaa01034decSimp = eaa01034.eaa01034decSimp;
+                    eaa01034Novo.eaa01034total = eaa01034.eaa01034total;
+                    eaa01034Novo.eaa01034servExt = eaa01034.eaa01034servExt;
+                    eaa01034Novo.eaa01034bcPis = eaa01034.eaa01034bcPis;
+                    eaa01034Novo.eaa01034pis = eaa01034.eaa01034pis;
+                    eaa01034Novo.eaa01034pgtoPis = eaa01034.eaa01034pgtoPis;
+                    eaa01034Novo.eaa01034bcCofins = eaa01034.eaa01034bcCofins;
+                    eaa01034Novo.eaa01034cofins = eaa01034.eaa01034cofins;
+                    eaa01034Novo.eaa01034pgtoCofins = eaa01034.eaa01034pgtoCofins;
+
+                    eaa01034sNovos.add(eaa01034Novo);
+                }
+
+                sprEaa0103s.get(i).setEaa01034s(eaa01034sNovos);
+            }
+
+        }catch(Exception err){
+            mostrarErros(err);
+        }
     }
 
     @Override
