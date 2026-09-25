@@ -48,7 +48,7 @@ public class Script extends sam.swing.ScriptBase{
             }
         }
 
-        if(nvgAbg01codigo.getValue() == null){
+        if(nvgAbg01codigo.getValue() == null && !exibirQuestao("Item sem NCM informado, deseja continuar?")){
             tabbedPane1.setSelectedIndex(2);
             nvgAbg01codigo.setBackground(new Color(255, 117, 117));
             throw new ValidacaoException("Necessário preencher o NCM do item antes de salvar!")
