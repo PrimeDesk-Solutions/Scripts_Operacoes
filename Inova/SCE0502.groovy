@@ -1,5 +1,7 @@
 import br.com.multitec.utils.ValidacaoException
+import br.com.multitec.utils.collections.TableMap
 import jdk.jshell.spi.ExecutionControlProvider
+import multitec.swing.components.autocomplete.MNavigation
 import multitec.swing.components.textfields.MTextFieldLocalDate
 import multitec.swing.core.MultitecRootPanel
 
@@ -12,9 +14,10 @@ import javax.swing.JButton;
 public class Script extends sam.swing.ScriptBase{
     @Override
     public void execute(MultitecRootPanel tarefa) {
-        JButton btnGravar = getComponente("btnGravar");
+        String user = obterUsuarioLogado().getAab10user();
+        adicionarEventoBtnGravar();
 
-        btnGravar.addActionListener(e -> btnGravarPressed())
+        if(user == "PAOLA" || user == "MASTER2") valoresDefaultPCP();
     }
     private void btnGravarPressed(){
         try{
@@ -29,5 +32,23 @@ public class Script extends sam.swing.ScriptBase{
         }catch (Exception e) {
             interromper(e.getMessage());
         }
+    }
+    private void adicionarEventoBtnGravar(){
+        JButton btnGravar = getComponente("btnGravar");
+
+        btnGravar.addActionListener(e -> btnGravarPressed())
+    }
+    private void valoresDefaultPCP(){
+        Long idPLF = buscarIDPLF("61");
+        MNavigation nvgAbm20codigo = getComponente("nvgAbm20codigo");
+
+        nvgAbm20codigo.getNavigationController().setIdValue(idPLF);
+    }
+    private Long buscarIDPLF(String codPLF){
+        String sql = "SELECT abm20id FROM abm20 WHERE abm20codigo = '" + codPLF + "'";
+
+        TableMap tmPLF = executarConsulta(sql)[0];
+
+        return tmPLF != null ? tmPLF.getLong("abm20id") : null;
     }
 }
