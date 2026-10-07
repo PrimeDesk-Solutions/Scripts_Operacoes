@@ -149,7 +149,7 @@ class Script extends ScriptBase {
     }
     private void adicionarBotaoIniciarPesagem(){
         btnPesagem = new JButton();
-        btnPesagem.setBounds(730, 360, 233, 32);
+        btnPesagem.setBounds(974, 264, 130, 32);
         btnPesagem.setText("Iniciar Pesagem");
         btnPesagem.addActionListener(e -> btnPesagemActionListener(e));
         this.tarefa.add(btnPesagem);
