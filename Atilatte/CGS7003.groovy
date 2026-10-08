@@ -50,7 +50,7 @@ class Script extends ScriptBase {
     private SerialPort porta;
     private InputStream input;
     private OutputStream output;
-    private String portaComm = "COM4";
+    private String portaComm = encontrarPortaBalanca();
     private int baundRate = 9600;
     private int baundBits = 8;
     private Thread threadPesagem;
@@ -563,6 +563,15 @@ class Script extends ScriptBase {
         btnPesagem.setText("Iniciar Pesagem");
 
         if(exibirMensagem) exibirInformacao("Pesagem parada!")
+    }
+    private String encontrarPortaBalanca() {
+        SerialPort porta = SerialPort.getCommPorts().find { p ->
+            p.getVendorID() == 0x1509 &&
+            p.getProductID() == 0x2206 &&
+            p.getSerialNumber() == "0123456789"
+        }
+
+        return porta ? porta.getSystemPortName() : null
     }
 
 
