@@ -8,7 +8,8 @@ import multitec.swing.core.MultitecRootPanel;
 import multitec.swing.components.autocomplete.MNavigation
 import multitec.swing.components.textfields.MTextFieldLocalDate
 import multitec.swing.components.spread.MSpread
-import javax.swing.JButton;
+import javax.swing.JButton
+import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent
 import java.awt.event.FocusListener;
 import javax.swing.JTabbedPane
@@ -21,8 +22,6 @@ public class Script extends sam.swing.ScriptBase{
     @Override
     public void execute(MultitecRootPanel tarefa) {
         try{
-            MNavigation nvgAbe01codigoIni = getComponente("nvgAbe01codigoIni");
-            MNavigation nvgAbe30codigo = getComponente("nvgAbe30codigo");
             MNavigation nvgAbe01codigo = getComponente("nvgAbe01codigo");
             Long idEmpresa = obterEmpresaAtiva().getAac10id();
             JTabbedPane tabbedPane1 = getComponente("tabbedPane1");
@@ -33,7 +32,8 @@ public class Script extends sam.swing.ScriptBase{
             MCheckBox chkDaa01aceite = getComponente("chkDaa01aceite");
             MNavigation nvgAbb10codigo = getComponente("nvgAbb10codigo");
             MSpread sprDoctsOrigem = getComponente("sprDoctsOrigem");
-            List<TableMap> spreadValores = sprDoctsOrigem.getValue()
+            List<TableMap> spreadValores = sprDoctsOrigem.getValue();
+            adicionarEventoEntidadeDestino();
 
             tabbedPane1.addChangeListener(e ->{ // Trocando de aba
                 int index = tabbedPane1.getSelectedIndex();
@@ -171,6 +171,7 @@ public class Script extends sam.swing.ScriptBase{
 
     }
     private void btnMostrarDestinoSelected(){
+        verificarEntidadeOrigemDestino();
         verificarTipoDoc();
     }
 
@@ -180,6 +181,27 @@ public class Script extends sam.swing.ScriptBase{
 
         if ("04".equals(tipoDoc) || "16".equals(tipoDoc) || "47".equals(tipoDoc) || "48".equals(tipoDoc)) interromper("Script: Tipo de documento não permitido para essa operação.");
 
+    }
+    private void adicionarEventoEntidadeDestino(){
+        MNavigation nvgAbe01codigo = getComponente("nvgAbe01codigo");
+
+        nvgAbe01codigo.addFocusListener(new FocusAdapter() {
+            @Override
+            void focusLost(FocusEvent e) {
+               if(nvgAbe01codigo.getValue() != null){
+                   verificarEntidadeOrigemDestino();
+               }
+            }
+        })
+    }
+    private void verificarEntidadeOrigemDestino(){
+        MNavigation nvgAbe01codigo = getComponente("nvgAbe01codigo");
+        MNavigation nvgAbe01codigoFim = getComponente("nvgAbe01codigoFim");
+        MNavigation nvgAbe01codigoIni = getComponente("nvgAbe01codigoIni");
+
+        if(nvgAbe01codigoIni.getValue() == null || nvgAbe01codigoFim.getValue() == null) return;
+        if(nvgAbe01codigo.getValue() != nvgAbe01codigoIni.getValue() || nvgAbe01codigo.getValue() != nvgAbe01codigoFim.getValue()  )
+            interromper("A entidade da aba destino deve ser a mesma da aba origem.")
     }
 
 }
