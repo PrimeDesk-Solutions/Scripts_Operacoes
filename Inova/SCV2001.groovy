@@ -169,14 +169,14 @@ public class Script extends sam.swing.ScriptBase{
             Integer numDoc = txtAbb01num.getValue()
             def empresa = obterEmpresaAtiva().aac10na
             Eaa01 eaa01 = (Eaa01)  ((SCV2001) tarefa).registro;
-            MNavigation nvgAah01codigo = getComponente("nvgAah01codigo");
-            String codTipoDoc = nvgAah01codigo.getValue();
+            MNavigation nvgAbd01codigo = getComponente("nvgAbd01codigo");
+            String codPCD = nvgAbd01codigo.getValue();
 
             if(eaa01 == null || eaa01.eaa01id == null) interromper("Antes de visualizar é necessário salvar o documento.");
 
             Long idDocumento = eaa01.eaa01id;
 
-            byte[] pdfBytes = buscarDadosRelatorio(idDocumento, codTipoDoc)
+            byte[] pdfBytes = buscarDadosRelatorio(idDocumento, codPCD)
 
             String caminhoArquivo = System.getProperty("user.home") + "/Downloads/"+empresa+"-"+numDoc+".pdf"
 
@@ -190,8 +190,8 @@ public class Script extends sam.swing.ScriptBase{
         }
     }
 
-    private byte[] buscarDadosRelatorio(Long idDocumento, String codTipoDoc) {
-        String caminhoRelatorio = buscarCaminhoRelatorio(codTipoDoc);
+    private byte[] buscarDadosRelatorio(Long idDocumento, String codPCD) {
+        String caminhoRelatorio = buscarCaminhoRelatorio(codPCD);
         String json = "{\"nome\":\""+caminhoRelatorio+"\",\"filtros\":{\"eaa01id\":"+idDocumento+"}}"
 
         ObjectMapper mapper = new ObjectMapper();
@@ -201,14 +201,14 @@ public class Script extends sam.swing.ScriptBase{
         return result
     }
 
-    private String buscarCaminhoRelatorio(String codTipoDoc){
-        String sql = "SELECT aah01formRelDoc FROM aah01 WHERE aah01codigo = '" + codTipoDoc + "'";
+    private String buscarCaminhoRelatorio(String codPCD){
+        String sql = "SELECT abd01camposCustom ->> 'diretorio_impressao' AS diretorio FROM abd01 WHERE abd01codigo = '" + codPCD + "'";
 
         TableMap tmTipoDoc = executarConsulta(sql)[0];
 
-        if(tmTipoDoc == null || tmTipoDoc.size() == 0) throw new ValidacaoException("Não foi encontrado relatório de impressão no tipo de documento " + codTipoDoc + ".");
+        if(tmTipoDoc == null || tmTipoDoc.size() == 0) throw new ValidacaoException("Não foi encontrado relatório de impressão no PCD " + codPCD + ".");
 
-        return tmTipoDoc.getString("aah01formRelDoc");
+        return tmTipoDoc.getString("diretorio");
     }
 
     private static void abrirPastaArquivo(File pdfFile) {
