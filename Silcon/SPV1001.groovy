@@ -85,6 +85,7 @@ public class Script extends sam.swing.ScriptBase{
         adicionarEventoBtnIniciar();
         adicionarCheckComNota();
         definirCamposDefault();
+        alterarPosicoesColunasLustre()
     }
     private void definirCamposDefault(){
         MCheckBox chkExibirOrcamentos = getComponente("chkExibirOrcamentos");
@@ -537,5 +538,14 @@ public class Script extends sam.swing.ScriptBase{
             }
         }
         return myService;
+    }
+    private void alterarPosicoesColunasLustre(){
+        String user = obterUsuarioLogado().getAab10user();
+        MSpread sprCcb0101s = getComponente("sprCcb0101s");
+
+        if( user == "NANY" || user == "DIANA" || user == "FILIPE" || user == "MASTER2" ||
+                user == "PRISCILA" || user == "SHIRLEI" || user == "RICARDO" || user == "LUIS"){
+            sprCcb0101s.getColumnIndex("ccb0101json.ambiente") != -1 ? sprCcb0101s.moveColumn(sprCcb0101s.getColumnIndex("ccb0101json.ambiente"), 6) : null;
+        }
     }
 }
