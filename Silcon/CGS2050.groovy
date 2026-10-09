@@ -1,7 +1,15 @@
+import br.com.multitec.utils.ValidacaoException
 import br.com.multitec.utils.collections.TableMap
+import br.com.multitec.utils.http.HttpRequest
 import com.amazonaws.protocol.json.internal.JsonMarshaller
+import multitec.swing.components.autocomplete.MNavigation
+import multitec.swing.components.autocomplete.MNavigationController
 import multitec.swing.core.MultitecRootPanel
+import multitec.swing.core.utils.WindowUtils
 import org.apache.axis2.i18n.Messages
+import sam.dto.cgs.CGS2050CashbackDto
+import sam.swing.VariaveisDaSessao
+import sam.swing.tarefas.scf.SCF4001
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -21,6 +29,8 @@ import sam.dto.cgs.CGS2050DocumentoSCFDto
 import multitec.swing.core.dialogs.Messages;
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import br.com.multitec.utils.UiSqlColumn;
@@ -36,9 +46,7 @@ public class Script extends sam.swing.ScriptBase{
     private boolean preenchendoSpread = false;
     public Runnable windowLoadOriginal;
     MultitecRootPanel tarefa;
-
-
-
+    Boolean isAcessarTarefaSCF4001 = isAcessarTarefa("SCF4001");
 
     @Override
     public void execute(MultitecRootPanel tarefa) {
@@ -51,12 +59,28 @@ public class Script extends sam.swing.ScriptBase{
         adicionarEventoBtnPrevisaoAPagar();
         adicionarEventoBtnPrevisaoAReceber();
         alterarPosicoesComponentes();
-        adicionarEventoSpread();
+        adicionarEventoSpreads();
         criarComponentes();
-        adicionarEventoSprCashback();
+        adicionarLegendaCaschback();
 
         this.windowLoadOriginal = tarefa.windowLoad ;
         tarefa.windowLoad = {novoWindowLoad()};
+    }
+    private void adicionarLegendaCaschback(){
+        JPanel pnlCashback = getComponente("pnlCashback");
+        JLabel lblDuploCliqueCashback = new JLabel();
+        lblDuploCliqueCashback.setText("<html><b>Duplo Clique Para Abrir Cashback Selecionado.</b><html>");
+        lblDuploCliqueCashback.setHorizontalAlignment(2);
+        lblDuploCliqueCashback.setBounds(500, 200, 355, 15);
+
+        JLabel lblTotalizar = new JLabel();
+        lblTotalizar.setText("<html><b>[T] Totalizar Cashback</b><html>")
+        lblTotalizar.setHorizontalAlignment(2);
+        lblTotalizar.setBounds(300, 200, 355, 15);
+
+        pnlCashback.add(lblDuploCliqueCashback);
+        pnlCashback.add(lblTotalizar);
+
     }
     private void reordenarColunas(){
         MSpread sprDocsFin = getComponente("sprDocsFin");
@@ -195,7 +219,11 @@ public class Script extends sam.swing.ScriptBase{
         pnlDocsFinanceiros.add(lblTotalGeral);
         pnlDocsFinanceiros.add(txtTotalGeral);
     }
-    private void adicionarEventoSpread(){
+    private void adicionarEventoSpreads(){
+        adicionarEventoSpreadDocsFin();
+        adicionarEventoSpreadCashback();
+    }
+    private void adicionarEventoSpreadDocsFin(){
         MSpread sprDocsFin = getComponente("sprDocsFin");
 
         sprDocsFin.getModel().addTableModelListener(e -> {
@@ -207,6 +235,45 @@ public class Script extends sam.swing.ScriptBase{
 
             callback();
         });
+    }
+    private void adicionarEventoSpreadCashback(){
+        try{
+            MSpread sprCashbacks = getComponente("sprCashbacks");
+            MNavigationController ctrAbe01 = getComponente("ctrAbe01");
+
+            try {
+                sprCashbacks.addKeyListener(new KeyAdapter() {
+                    @Override
+                    void keyPressed(KeyEvent e) {
+                        if(e.getKeyCode() == 84 && sprCashbacks.getValue().size() > 0){
+                            totalizarCashback();
+                        }
+                    }
+                })
+            } catch (Exception e) {
+                throw new ValidacaoException("Falha ao totalizar cashback: " + e.getMessage());
+            }
+
+
+            try {
+                sprCashbacks.addMouseListener(new MouseAdapter() {
+                    @Override
+                    void mouseClicked(MouseEvent e) {
+                        if(e.getClickCount() == 2 && sprCashbacks.getSelectedRow() >= 0){
+                            int row = sprCashbacks.getSelectedRow();
+                            Long idCashback = buscarIdCashbackSelecionado(ctrAbe01.getValue().getAbe01id(), sprCashbacks.get(row));
+                            if(idCashback == null) return;
+                            if(!isAcessarTarefaSCF4001) throw new ValidacaoException("O usuário não tem permissão para acessar essa tarefa.")
+                            abrirTarefaSCF4001(idCashback);
+                        }
+                    }
+                })
+            } catch (Exception e){
+                throw new ValidacaoException(e.getMessage());
+            }
+        } catch (Exception e) {
+            throw new ValidacaoException(e.getMessage())
+        }
     }
     private void callback(){
         MSpread sprDocsFin = getComponente("sprDocsFin");
@@ -271,18 +338,6 @@ public class Script extends sam.swing.ScriptBase{
             return uiSqlColumn;
         };
     }
-    private void adicionarEventoSprCashback(){
-        MSpread sprCashbacks = getComponente("sprCashbacks");
-
-        sprCashbacks.addKeyListener(new KeyAdapter() {
-            @Override
-            void keyPressed(KeyEvent e) {
-                if(e.getKeyCode() == 84 && sprCashbacks.getValue().size() > 0){
-                    totalizarCashback();
-                }
-            }
-        })
-    }
     private void totalizarCashback(){
         MSpread sprCashbacks = getComponente("sprCashbacks");
 
@@ -294,5 +349,44 @@ public class Script extends sam.swing.ScriptBase{
 
         Messages.create(tarefa.getWindow()).text("Soma dos saldos de cashback: " + total).success();
     }
+    private Long buscarIdCashbackSelecionado(Long idEntidade, CGS2050CashbackDto cgs2050CashbackDto){
+        String tipo = cgs2050CashbackDto.tipo;
+        BigDecimal saldo = cgs2050CashbackDto.saldo;
+        String nome = cgs2050CashbackDto.nome
+        String codTipo = tipo.trim().split("-")[0]
+        Integer propriedade = cgs2050CashbackDto.proprioTerceiro.toUpperCase() == "PRÓPRIO" ? 0 : 1;
+
+
+        String sql = "SELECT dad01id " +
+                    " FROM dad01 " +
+                    " INNER JOIN abf30 ON abf30id = dad01tipo "+
+                    " WHERE abf30codigo = '" + codTipo.trim() + "' "+
+                    " AND dad01saldo = " + saldo +
+                    " AND dad01nome = '" + nome + "' " +
+                    " AND dad01ent = " + idEntidade +
+                    " AND dad01prop = " + propriedade +
+                    " LIMIT 1 ";
+
+        TableMap tmCashback = executarConsulta(sql)[0];
+
+        return tmCashback != null ? tmCashback.getLong("dad01id") : null;
+    }
+    private void abrirTarefaSCF4001(Long idCashback){
+        try {
+            SCF4001 scf4001 = new SCF4001();
+            WindowUtils.createJDialog(scf4001.getWindow(), scf4001);
+            scf4001.cancelar = () -> scf4001.getWindow().dispose();
+            scf4001.exibirPanelListaCadastro = () -> scf4001.getWindow().dispose();
+            scf4001.editar(idCashback);
+            scf4001.getWindow().setVisible(true);
+        } catch (Exception e){
+            throw new ValidacaoException("Falha ao abrir tarefa SCF4001: " + e.getMessage());
+        }
+
+    }
+    protected boolean isAcessarTarefa(String tarefa) {
+        return (Boolean) HttpRequest.create().controllerEndPoint("cas0103").methodEndPoint("verificarSeUsuarioTemAcessoTarefa").param("aab10id", VariaveisDaSessao.getInstance().getAab10().getIdValue()).param("tarefa", tarefa).get().parseResponse(Boolean.class);
+    }
+
 
 }
