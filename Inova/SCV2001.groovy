@@ -7,13 +7,16 @@ import br.com.multitec.utils.UiSqlColumn
 import br.com.multitec.utils.ValidacaoException
 import br.com.multitec.utils.collections.TableMap
 import br.com.multitec.utils.http.HttpRequest
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import multitec.swing.components.MCheckBox
 import multitec.swing.components.spread.MSpread
+import multitec.swing.components.textfields.MTextArea
 import multitec.swing.core.MultitecRootPanel
 import multitec.swing.core.dialogs.ErrorDialog
 import multitec.swing.core.dialogs.Messages
+import multitec.swing.request.WorkerRequest
 import multitec.swing.request.WorkerRunnable
 import multitec.swing.request.WorkerSupplier
 import org.apache.commons.collections.functors.ExceptionPredicate
@@ -35,7 +38,8 @@ import javax.print.PrintServiceLookup
 import javax.swing.JButton
 import javax.swing.JComboBox
 import javax.swing.JOptionPane
-import javax.swing.JPanel;
+import javax.swing.JPanel
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionListener
 import java.awt.event.ActionEvent
 import java.awt.event.FocusEvent
@@ -46,16 +50,21 @@ import multitec.swing.components.autocomplete.MNavigation
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.awt.Desktop
-import multitec.swing.request.WorkerRunnable
-import multitec.swing.request.WorkerSupplier
-import java.time.LocalDate
-import java.time.LocalTime
-
+import javax.swing.*;
+import javax.swing.border.TitledBorder;
+import java.awt.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.nio.charset.StandardCharsets
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 public class Script extends sam.swing.ScriptBase{
     MultitecRootPanel tarefa;
     public Runnable windowLoadOriginal;
     PanelListarCadastro listaDoCadastro;
     Integer countInconsistencia = 0;
+    boolean documentoAprovado = false;
+    String dialogObservacao = null;
 
     @Override
     public void execute(MultitecRootPanel tarefa) {
@@ -67,6 +76,7 @@ public class Script extends sam.swing.ScriptBase{
         adicionaBotaoImprimirDocumento();
         adicionarEventoPCD();
         reordenarColunasPorUsuario();
+        //criarBotaoAprovarDoc()
         criarBotao("Ordenar Campos", {reordenarColunasPorUsuario()})
     }
     protected void novoWindowLoad(){
@@ -142,7 +152,7 @@ public class Script extends sam.swing.ScriptBase{
         btnImprimir.setText("Visualizar");
 
         // X    Y    W  H
-        btnImprimir.setBounds(110, 100, 160, 20);
+        btnImprimir.setBounds(0, 100, 160, 20);
         panel7.add(btnImprimir);
 
         panel7.setLayout(null);
@@ -222,7 +232,6 @@ public class Script extends sam.swing.ScriptBase{
     @Override
     public void preSalvar(boolean salvo) {
         Eaa01 eaa01 = (Eaa01) ((MultitecRootPanel) tarefa).registro;
-
         verificarItensDoc(eaa01);
     }
 
@@ -396,6 +405,216 @@ public class Script extends sam.swing.ScriptBase{
         } catch (Exception e) {
             throw new ValidacaoException("Erro ao exibir mensagem de gravação: " + e.getMessage());
         }
+    }
+    private void criarBotaoAprovarDoc(){
+        JPanel panel7 = getComponente("panel7");
+
+        JButton btnAprovar = new JButton();
+        btnAprovar.setBounds(170, 100, 150, 20);
+        btnAprovar.setText("Aprovar");
+        btnAprovar.addActionListener(e -> btnAprovarPressed());
+        panel7.add(btnAprovar);
+    }
+
+    private void btnAprovarPressed(){
+        String tarefaOrigem    = "SCV3001";
+        String descrTarefa     = "Pedidos";
+        String operacaoValidar = "Aprovação do Pedido";
+        String nomeValidador   = obterUsuarioLogado().getAab10user().toUpperCase();
+        Eaa01 eaa01 = (Eaa01) ((MultitecRootPanel) tarefa).registro;
+
+        TableMap tmAprovado = verificarDocumentoJaAprovado(eaa01.eaa01central.abb01id);
+
+        if(tmAprovado != null && tmAprovado.size() > 0) interromper("Documento já aprovado, não é permitido aprovar novamente.")
+
+        documentoAprovado = false;
+
+        JDialog dlg = montarDialogValidacao(tarefaOrigem, descrTarefa, operacaoValidar, nomeValidador);
+        dlg.setVisible(true); // modal: bloqueia até fechar
+
+        if (documentoAprovado) {
+            aprovarDocumento(dialogObservacao, eaa01);
+        }
+    }
+
+    private JDialog montarDialogValidacao(String tarefaOrigem, String descrTarefa,
+                                          String operacaoValidar, String nomeValidador){
+        def owner = tarefa.getWindow();
+        JDialog dlg = new JDialog(owner, "CAS0155 - Validar Operações", Dialog.ModalityType.APPLICATION_MODAL);
+
+        JPanel content = new JPanel(new GridBagLayout());
+        content.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(4, 4, 4, 4);
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        gc.gridx = 0; gc.gridy = 0; gc.weightx = 1;
+
+        // --- Origem ---
+        gc.gridy = 0;
+        content.add(montarPainelOrigem(tarefaOrigem, descrTarefa), gc);
+
+        // --- Operação a Validar ---
+        JPanel pnlOperacao = new JPanel(new BorderLayout());
+        pnlOperacao.setBorder(new TitledBorder("Operação a Validar"));
+        JTextArea txtOperacao = new JTextArea(operacaoValidar, 6, 40);
+        txtOperacao.setEditable(false);
+        txtOperacao.setLineWrap(true);
+        txtOperacao.setWrapStyleWord(true);
+        txtOperacao.setBackground(UIManager.getColor("TextField.background"));
+        pnlOperacao.add(new JScrollPane(txtOperacao), BorderLayout.CENTER);
+
+        gc.gridy = 1; gc.fill = GridBagConstraints.BOTH; gc.weighty = 1;
+        content.add(pnlOperacao, gc);
+        gc.weighty = 0; gc.fill = GridBagConstraints.HORIZONTAL;
+
+        // --- Observação ---
+        gc.gridy = 2;
+        content.add(new JLabel("Observação do Usuário Validador"), gc);
+        JTextField txtObservacao = new JTextField();
+        gc.gridy = 3;
+        content.add(txtObservacao, gc);
+
+        // --- Usuário Validador ---
+        JTextField txtNome = new JTextField(nomeValidador, 12);
+        JPasswordField txtSenha = new JPasswordField(12);
+        JButton btnOk = new JButton("OK");
+        JButton btnCancelar = new JButton("Cancelar");
+
+        gc.gridy = 4;
+        content.add(montarPainelUsuario(txtNome, txtSenha, btnOk, btnCancelar), gc);
+
+        dlg.setContentPane(content);
+
+        configurarAcoesDialog(dlg, txtNome, txtSenha, txtObservacao, btnOk, btnCancelar);
+
+        dlg.pack();
+        dlg.setLocationRelativeTo(owner);
+        return dlg;
+    }
+
+    private JPanel montarPainelOrigem(String tarefaOrigem, String descrTarefa){
+        JPanel pnlOrigem = new JPanel(new GridBagLayout());
+        pnlOrigem.setBorder(new TitledBorder("Origem"));
+        GridBagConstraints go = new GridBagConstraints();
+        go.insets = new Insets(2, 4, 2, 4); go.gridy = 0;
+
+        go.gridx = 0; go.weightx = 0;
+        pnlOrigem.add(new JLabel("Tarefa"), go);
+        JTextField txtTarefa = new JTextField(tarefaOrigem, 8);
+        txtTarefa.setEditable(false);
+        go.gridx = 1;
+        pnlOrigem.add(txtTarefa, go);
+        JTextField txtDescTarefa = new JTextField(descrTarefa);
+        txtDescTarefa.setEditable(false);
+        go.gridx = 2; go.weightx = 1;
+        pnlOrigem.add(txtDescTarefa, go);
+
+        return pnlOrigem;
+    }
+
+    private JPanel montarPainelUsuario(JTextField txtNome, JPasswordField txtSenha,
+                                       JButton btnOk, JButton btnCancelar){
+        JPanel pnlUsuario = new JPanel(new GridBagLayout());
+        pnlUsuario.setBorder(new TitledBorder("Usuário Validador"));
+        GridBagConstraints gu = new GridBagConstraints();
+        gu.insets = new Insets(2, 4, 2, 4); gu.anchor = GridBagConstraints.WEST;
+
+        gu.gridx = 0; gu.gridy = 0;
+        pnlUsuario.add(new JLabel("Nome"), gu);
+        gu.gridx = 1; gu.fill = GridBagConstraints.HORIZONTAL; gu.weightx = 0.4;
+        pnlUsuario.add(txtNome, gu);
+
+        gu.gridx = 0; gu.gridy = 1; gu.fill = GridBagConstraints.NONE; gu.weightx = 0;
+        pnlUsuario.add(new JLabel("Senha"), gu);
+        gu.gridx = 1; gu.fill = GridBagConstraints.HORIZONTAL; gu.weightx = 0.4;
+        pnlUsuario.add(txtSenha, gu);
+
+        gu.gridx = 2; gu.gridy = 0; gu.weightx = 0.3; gu.insets = new Insets(2, 20, 2, 4);
+        pnlUsuario.add(btnOk, gu);
+        gu.gridx = 2; gu.gridy = 1;
+        pnlUsuario.add(btnCancelar, gu);
+
+        return pnlUsuario;
+    }
+
+    private void configurarAcoesDialog(JDialog dlg, JTextField txtNome, JPasswordField txtSenha,
+                                       JTextField txtObservacao, JButton btnOk, JButton btnCancelar){
+        btnOk.addActionListener({ ActionEvent e ->
+            String nome = txtNome.getText().trim().toUpperCase();
+            String senha = new String(txtSenha.getPassword());
+            String hashBanco = buscarHashSenha(nome);
+            if (hashBanco != null && gerarMd5(nome + senha).equalsIgnoreCase(hashBanco)) {
+                documentoAprovado = true;
+                dialogObservacao = txtObservacao.getText();
+
+                dlg.dispose();
+            } else {
+                JOptionPane.showMessageDialog(dlg, "Usuário ou senha inválidos",
+                        "Validação", JOptionPane.WARNING_MESSAGE);
+                txtSenha.setText("");
+                txtSenha.requestFocusInWindow();
+            }
+        } as ActionListener);
+
+        btnCancelar.addActionListener({ ActionEvent e ->
+            documentoAprovado = false;
+            dlg.dispose();
+        } as ActionListener);
+
+        dlg.getRootPane().setDefaultButton(btnOk); // Enter confirma
+        dlg.getRootPane().registerKeyboardAction(
+                { ActionEvent e -> documentoAprovado = false; dlg.dispose(); } as ActionListener,
+                KeyStroke.getKeyStroke("ESCAPE"),                            // Esc cancela
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
+    }
+
+    private String gerarMd5(String texto){
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] h = md.digest(texto.getBytes(StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        for (byte b : h) sb.append(String.format("%02x", b));
+        return sb.toString();
+    }
+
+    private String buscarHashSenha(String login){
+        String sql = "SELECT aab10senha FROM aab10 WHERE UPPER(aab10user) = '" + login.toUpperCase() + "'";
+        def res = executarConsulta(sql);
+        if (res == null || res.size() == 0) return null;
+        return res[0].getString("aab10senha");
+    }
+
+    private void aprovarDocumento(String obsAprovacao, Eaa01 eaa01){
+        try{
+            TableMap body = new TableMap()
+            body.put("eaa01id", eaa01.eaa01id)
+            body.put("obs", obsAprovacao);
+            WorkerRequest.create(tarefa.getWindow())
+                    .initialText("Aprovando documento")
+                    .dialogVisible(true)
+                    .controllerEndPoint("servlet")
+                    .methodEndPoint("run")
+                    .param("name", "Inova.servlet.Aprovar_Documentos")
+                    .header("ignore-body-decrypt", "true")
+                    .parseBody(body)
+                    .success((response) -> {
+                        exibirInformacao("Documento Aprovado.");
+                        tarefa.getWindow().getJMenuBar().getMnuArquivo().getMniAtualizar().doClick(); // atualiza a tela
+                    })
+                    .post();
+        }catch(Exception err){
+            throw new ValidacaoException(err.getMessage());
+        }
+    }
+
+    private TableMap verificarDocumentoJaAprovado(Long idCentral){
+        String sql = "SELECT abb0103data " +
+                        " FROM abb0103 " +
+                        " WHERE abb0103central = " + idCentral +
+                        " AND abb0103data IS NOT NULL"
+
+        TableMap tmAprovado = executarConsulta(sql)[0];
+
+        return tmAprovado;
     }
 
     @Override
