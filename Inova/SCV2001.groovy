@@ -76,7 +76,7 @@ public class Script extends sam.swing.ScriptBase{
         adicionaBotaoImprimirDocumento();
         adicionarEventoPCD();
         reordenarColunasPorUsuario();
-        //criarBotaoAprovarDoc()
+        criarBotaoAprovarDoc()
         criarBotao("Ordenar Campos", {reordenarColunasPorUsuario()})
     }
     protected void novoWindowLoad(){
@@ -422,6 +422,13 @@ public class Script extends sam.swing.ScriptBase{
         String operacaoValidar = "Aprovação do Pedido";
         String nomeValidador   = obterUsuarioLogado().getAab10user().toUpperCase();
         Eaa01 eaa01 = (Eaa01) ((MultitecRootPanel) tarefa).registro;
+        String user = obterUsuarioLogado().getAab10user();
+
+        if(eaa01 == null || eaa01.eaa01id == null)
+            interromper("Necessário salvar o documento antes de aprovar.");
+
+        if(user != "CAROL" && user != "GUILHERME")
+            interromper("O usuário logado não tem permissão para aprovar documentos");
 
         TableMap tmAprovado = verificarDocumentoJaAprovado(eaa01.eaa01central.abb01id);
 
