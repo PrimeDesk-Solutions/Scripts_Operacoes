@@ -7,6 +7,10 @@ import javax.swing.JTabbedPane;
 public class Script extends sam.swing.ScriptBase{
     @Override
     public void execute(MultitecRootPanel tarefa) {
+        adicionarEventoTabFiltros();
+        definirValoresDefault();
+    }
+    private void adicionarEventoTabFiltros(){
         JTabbedPane tabFiltros = getComponente("tabFiltros");
         tabFiltros.addChangeListener(e -> {
             int index = tabFiltros.getSelectedIndex();
@@ -17,5 +21,13 @@ public class Script extends sam.swing.ScriptBase{
                 nvgAbm15nome0.getNavigationController().setIdValue(128987);
             }
         })
+    }
+    private void definirValoresDefault(){
+        MNavigation nvgAbm20codigoSaida = getComponente("nvgAbm20codigoSaida");
+        MNavigation nvgAbm20codigoEntrada = getComponente("nvgAbm20codigoEntrada");
+
+        nvgAbm20codigoEntrada.getNavigationController().setIdValue(129026);
+        nvgAbm20codigoSaida.getNavigationController().setIdValue(129025);
+
     }
 }

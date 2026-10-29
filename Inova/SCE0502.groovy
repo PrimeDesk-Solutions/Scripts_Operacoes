@@ -39,12 +39,12 @@ public class Script extends sam.swing.ScriptBase{
         btnGravar.addActionListener(e -> btnGravarPressed())
     }
     private void valoresDefaultPCP(){
-        Long idPLF = buscarIDPLF("61");
-        MNavigation nvgAbm20codigo = getComponente("nvgAbm20codigo");
-
-        nvgAbm20codigo.getNavigationController().setIdValue(idPLF);
+//        Long idPLE = buscarIDPLE("61");
+//        MNavigation nvgAbm20codigo = getComponente("nvgAbm20codigo");
+//
+//        nvgAbm20codigo.getNavigationController().setIdValue(idPLE);
     }
-    private Long buscarIDPLF(String codPLF){
+    private Long buscarIDPLE(String codPLF){
         String sql = "SELECT abm20id FROM abm20 WHERE abm20codigo = '" + codPLF + "'";
 
         TableMap tmPLF = executarConsulta(sql)[0];
