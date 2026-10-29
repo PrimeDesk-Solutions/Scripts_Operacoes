@@ -8,37 +8,45 @@ import javax.swing.JCheckBox;
 
 public class Script extends sam.swing.ScriptBase{
     MultitecRootPanel panel;
+    MComboBox<Integer> cmbTipoItens = new MComboBox<>();
 
     @Override
     public void execute(MultitecRootPanel tarefa) {
         this.panel = tarefa;
+
+        definirValoresDefault()
+        criarComboTipoItem();
+
+    }
+    private void definirValoresDefault(){
         MComboBox cmbFormulaImportar = getComponente("cmbFormulaImportar");
         JCheckBox chkAbrirSRF1001 = getComponente("chkAbrirSRF1001");
 
         chkAbrirSRF1001.setSelected(true);
-
         cmbFormulaImportar.setValue("Silcon.formulas.srf.ImportaXmlNFe_Entrada");
-
-
-        criarBotaoReplicarTipos();
-
     }
-    private void criarBotaoReplicarTipos(){
-        JButton btnReplicarTiposItem = new JButton();
-        btnReplicarTiposItem.setText("Tipo 1-Prod.");
-        btnReplicarTiposItem.setBounds(1000, 264, 150, 30);
-        btnReplicarTiposItem.addActionListener(e -> replicarTipoItem());
+    private void criarComboTipoItem(){
+        cmbTipoItens.addItem(0, "0-Material");
+        cmbTipoItens.addItem(1, "1-Produto");
+        cmbTipoItens.addItem(2, "2-Merc");
+        cmbTipoItens.addItem(3, "3-Serv");
+        cmbTipoItens.setBounds(1200, 264, 100, 25);
+        cmbTipoItens.addActionListener(e -> cmbTipoItensActionPerformed())
 
-        panel.add(btnReplicarTiposItem)
+        panel.add(cmbTipoItens)
     }
-    private void replicarTipoItem(){
+    private void cmbTipoItensActionPerformed(){
+        Integer tipoItem = cmbTipoItens.getValue();
+        replicarTipoItem(tipoItem);
+    }
+    private void replicarTipoItem(Integer tipo){
         MSpread sprItens = getComponente("sprItens");
         List<SRF1008DtoItem> sprValue = sprItens.getValue();
 
         if(sprValue == null || sprValue.size() == 0) return;
 
         for(srf1008dto in sprValue){
-            srf1008dto.abm01.setAbm01tipo(1);
+            srf1008dto.abm01.setAbm01tipo(tipo);
         }
 
         sprItens.refreshAll()
