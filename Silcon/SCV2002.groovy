@@ -1,12 +1,40 @@
 /*
-    SCV2001 - Pedidos de Venda
-    1. Insere evento no botão ESC para perguntar se deseja realmente sair
-    2. Altera a lista de busca (F4) das entidade e dos itens
-    3. Insere botão de impressão de documentos
-    4. Exibe uma mensagem se deseja recalcular os itens ao trocar a tabela de preço
-    5. Remove a coluna abm01na e altera a posição das demais colunas
-    6. Adiciona evento que reordena as colunas ao inserir o PCD
-    7. Adiciona botão de reordenar colunas
+    SCV2002 - PEDIDOS DE VENDA
+
+    1. MENU "Customizado > Salvar PDF":
+       - Exige que o documento esteja salvo.
+       - Gera o PDF pelo relatório do tipo de documento (aah01formRelDoc).
+         Exceção: PCD 20006 usa o relatório Silcon.relatorios.srf.SRF_Impressao_Documento_Interno_S_Desc.
+       - Salva como "Orçamento-<número>.pdf" na pasta do campo customizado 'caminho_pedidos'
+         do usuário logado (aab10camposCustom). Se não houver, salva em <pasta do usuário>/Downloads.
+       - Abre o PDF gerado.
+       (O botão "Imprimir" e a impressão direta na impressora existem no código, mas estão desativados.)
+
+    2. AO SAIR DO CAMPO TABELA DE PREÇO (nvgAbe40codigo), se preenchido e houver itens:
+       pergunta se deseja recalcular; se sim, zera o preço unitário e o desconto (eaa0103json.desconto)
+       dos itens e aciona o botão "Recalcular Documento".
+
+    3. COLUNAS DA SPREAD DE ITENS:
+       - Reordena as colunas (Descrição, UM, UM Coml, Qtde Coml, Unitário, Total, Total Doc, Desconto,
+         Total Financ, Entrega, NCM código e NCM descrição):
+           - ao abrir a tela;
+           - ao sair do campo PCD (nvgAbd01codigo), se preenchido;
+           - pelo botão "Reordenar Colunas" (painel panel7).
+       - Oculta a coluna de índice 4 da spread (originalmente abm01na).
+
+    4. BOTÃO "REPLICAR REP ITENS" (painel pnlDiversos):
+       copia o Representante 0 do documento (id, código e nome abreviado) para o campo livre
+       (eaa0103json) de todos os itens. Exige o Representante 0 preenchido e itens na spread.
+
+    5. LISTA DE BUSCA (F4) personalizada:
+       - Entidade: Código, Nome, Endereço, Nome Abreviado, Nº Inscrição.
+       - Item: Código, GTIN, Descrição, Fabricante.
+
+    6. Desativa o botão de incluir novo endereço de entrega da entidade.
+
+    7. CANCELAR / ESC: pergunta "Deseja realmente sair?"; se não, mantém a tela aberta.
+
+    8. APÓS SALVAR: exibe a mensagem "Documento <número> salvo com sucesso." (fecha em 5 segundos).
  */
 import br.com.multitec.utils.ValidacaoException
 import br.com.multitec.utils.collections.TableMap
@@ -54,27 +82,90 @@ public class Script extends sam.swing.ScriptBase{
 
     @Override
     public void execute(MultitecRootPanel tarefa) {
-        JButton btnIncluirNovoEnderecoEntregaEntidade = getComponente("btnIncluirNovoEnderecoEntregaEntidade");
         this.tarefa = tarefa;
         listaDoCadastro = ((PanelCadastro)tarefa).panelListarCadastro.get();
-        adicionarEventoPCD();
-        adicionarEventoTabelaPreco();
-        tarefa.getWindow().getJMenuBar().getMnuArquivo().getMniCancelar().addActionListener(mnu -> this.adicionaEventoESC(mnu));
-        this.windowLoadOriginal = tarefa.windowLoad;
-        tarefa.windowLoad = {novoWindowLoad()};
+        alterarWindowLoad();
+        adicionarEventoMenu();
+        criarBotoes();
+        adicionarEventosComponentes();
         reordenarColunas();
         ocultarColunaSpread();
-//        adicionaBotaoImprimirDocumento();
-        criarMenu("Customizado", "Salvar PDF", e -> btnImprimirPressed(), null);
+        criarMenuCustomizados();
+        desativarBotoes();
 
-        //adicionarBotaoReordenarColunas();
-        desativarBotaoIncluirEndereco(btnIncluirNovoEnderecoEntregaEntidade);
     }
-    private void desativarBotaoIncluirEndereco(JButton btn){
-        desativarBotoes(btn)
+    private void criarMenuCustomizados(){
+        criarMenu("Customizado", "Salvar PDF", e -> btnImprimirPressed(), null);
     }
-    private void desativarBotoes(JButton btn){
+    private void alterarWindowLoad(){
+        this.windowLoadOriginal = tarefa.windowLoad;
+        tarefa.windowLoad = {novoWindowLoad()};
+    }
+    private void adicionarEventoMenu(){
+        tarefa.getWindow().getJMenuBar().getMnuArquivo().getMniCancelar().addActionListener(mnu -> this.adicionaEventoESC(mnu));
+    }
+    private void criarBotoes(){
+        adicionarBotaoReordenarColunas();
+        adicionarBotaoReplicarRepresentantes();
+    }
+    private void adicionarBotaoReplicarRepresentantes(){
+        JPanel pnlDiversos = getComponente("pnlDiversos");
+        JButton btnReplicarRep = new JButton();
+        btnReplicarRep.setBounds(180, 249, 110, 23);
+        btnReplicarRep.setText("Replicar Rep Itens");
+        btnReplicarRep.addActionListener(e -> btnReplicarRepPressed());
+
+        pnlDiversos.add(btnReplicarRep)
+    }
+    private void btnReplicarRepPressed(){
+        try{
+            if(!exibirQuestao("Deseja replicar o representante para o itens do documento?")) return;
+            MNavigation nvgAbe01codigoRep0 = getComponente("nvgAbe01codigoRep0");
+            def rep0 = nvgAbe01codigoRep0.getNavigationController().getValue();
+            if(rep0 == null) throw new ValidacaoException("Necessário preencher o representante 0 para replicar.");
+
+            TableMap sprValue = new TableMap();
+            sprValue.put("id_representante", rep0.getAbe01id());
+            sprValue.put("cod_representante", rep0.getAbe01codigo());
+            sprValue.put("nome_representante", rep0.getAbe01na());
+            alterarCamposLivresItens(sprValue);
+        } catch (Exception e){
+            interromper(e.getMessage())
+        }
+    }
+    private void alterarCamposLivresItens(TableMap tm){
+        try {
+            MSpread sprEaa0103s = getComponente("sprEaa0103s");
+            if(sprEaa0103s.getValue().size() == 0) throw new ValidacaoException("Não há itens na spread.");
+
+            for(Eaa0103 eaa0103 in sprEaa0103s.getValue()){
+                TableMap jsonEaa0103 = eaa0103.eaa0103json != null ? eaa0103.eaa0103json : new TableMap();
+                if(tm != null && tm.size() > 0){
+                    jsonEaa0103.put("id_representante",tm.getLong("id_representante"));
+                    jsonEaa0103.put("cod_representante",tm.getString("cod_representante"));
+                    jsonEaa0103.put("nome_representante",tm.getString("nome_representante"));
+                }
+
+                eaa0103.setEaa0103json(jsonEaa0103);
+            }
+
+            sprEaa0103s.refreshAll();
+            exibirInformacao("Itens atualizados com sucesso!")
+        } catch (Exception e) {
+            throw new ValidacaoException(e.getMessage())
+        }
+    }
+    private void desativarBotoes(){
+        JButton btnIncluirNovoEnderecoEntregaEntidade = getComponente("btnIncluirNovoEnderecoEntregaEntidade");
+
+        desativarBotao(btnIncluirNovoEnderecoEntregaEntidade);
+    }
+    private void desativarBotao(JButton btn){
         btn.setEnabled(false);
+    }
+    private void adicionarEventosComponentes(){
+        adicionarEventoPCD();
+        adicionarEventoTabelaPreco();
     }
     private void adicionarEventoPCD(){
         MNavigation nvgAbd01codigo = getComponente("nvgAbd01codigo");
@@ -108,7 +199,7 @@ public class Script extends sam.swing.ScriptBase{
             JButton btnRecalcularDocumento = getComponente("btnRecalcularDocumento");
 
             for (eaa0103 in eaa0103s){
-                TableMap jsonEaa0103 = eaa0103.eaa0103json;
+                TableMap jsonEaa0103 = eaa0103.eaa0103json != null ? eaa0103.eaa0103json : new TableMap();
                 eaa0103.eaa0103unit = new BigDecimal(0);
                 jsonEaa0103.put("desconto", BigDecimal.ZERO);
                 eaa0103.setEaa0103json(jsonEaa0103);
@@ -315,27 +406,30 @@ public class Script extends sam.swing.ScriptBase{
      */
     void salvarPDF() {
         try {
-            Eaa01 eaa01 = (Eaa01)  ((SCV2002) tarefa).registro;
-            if(eaa01 == null || eaa01.eaa01id == null) interromper("Antes de gerar o PDF é necessário salvar o documento.");
+            Eaa01 eaa01 = (Eaa01) ((SCV2002) tarefa).registro;
+            if (eaa01 == null || eaa01.eaa01id == null) interromper("Antes de gerar o PDF é necessário salvar o documento.");
 
             MTextFieldInteger txtAbb01num = getComponente("txtAbb01num");
-            Integer numDoc = txtAbb01num.getValue()
+            Integer numDoc = txtAbb01num.getValue();
             MNavigation nvgAah01codigo = getComponente("nvgAah01codigo");
             String codTipoDoc = nvgAah01codigo.getValue();
             Long idDocumento = eaa01.eaa01id;
-            def empresa = obterEmpresaAtiva().aac10na
 
-            byte[] pdfBytes = buscarDadosImpressao(idDocumento, codTipoDoc)
+            byte[] pdfBytes = buscarDadosImpressao(idDocumento, codTipoDoc);
+            if (pdfBytes == null || pdfBytes.length == 0) interromper("O relatório não retornou conteúdo para gerar o PDF.");
 
-            String caminhoArquivo = buscarCaminhoArquivo() == null ? System.getProperty("user.home") + "/Downloads/Orçamento"+"-"+numDoc+".pdf" : buscarCaminhoArquivo() + "\\Orçamento-" + numDoc + ".pdf";
+            String caminho = buscarCaminhoArquivo()?.trim();
+            String nomeArquivo = "Orçamento-" + numDoc + ".pdf";
 
-            Files.write(Paths.get(caminhoArquivo), pdfBytes)
-            File pdfFile = new File(caminhoArquivo);
+            def pasta = caminho ? Paths.get(caminho) : Paths.get(System.getProperty("user.home"), "Downloads");
+            Files.createDirectories(pasta);
+            def arquivo = pasta.resolve(nomeArquivo);
 
-            abrirPastaArquivo(pdfFile)
+            Files.write(arquivo, pdfBytes);
+            abrirPastaArquivo(arquivo.toFile());
 
         } catch (IOException e) {
-            e.printStackTrace()
+            interromper("Não foi possível salvar o PDF: " + e.getMessage());
         }
     }
 

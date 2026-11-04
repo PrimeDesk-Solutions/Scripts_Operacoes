@@ -1,26 +1,54 @@
 /*
     SRF1002 - DOCUMENTOS DE VENDAS (NOTAS)
-    FUNÇÃO:
 
-    1. Exibe observação de uso interno (Abe02obsUsoInt) da entidade (se existir).
-    2. Verifica títulos vencidos:
-       - Se houver, pergunta se deseja continuar.
-       - Se sim, solicita observação para registrar no documento.
-    3. Validação do limite de crédito:
-       - Verifica data limite (se vencida, interrompe).
-       - Calcula saldo devedor:
-            - DAA01 (Docs a Receber): abb01quita = 0 AND daa01rp = 0
-            - EAA01 (Financeiro 2-Batch): abb10tipoCod = 1 AND eaa01esMov = 1 AND eaa01clasDoc = 1 AND eaa01cancData IS NULL AND eaa01iSCF = 2
-            - Saldo devedor = soma(Doc. a Receber + Doc. Batch)
-       - Se saldo > limite, pergunta se deseja continuar e solicita observação.
-    4. Ao salvar, valida novamente o limite (sem solicitar nova observação).
-    5. Adiciona evento ao pressionar a tecla ESC, perguntando se realmente deseja sair
-    6. Cria botão de imprimir documento, ao selecionar o botão considerar:
-        6.1 Tipo de documento 04 ou 16, abrir tela de impressão de documento (SRF1009);
-        6.2 Demais tipos de documentos enviar diretamente para impressora
-    7. Altera a lista de busca (F4) das entidade e dos itens
-    8. Recalcula os itens após alterar a tabela de preç0
-    9. Altera a ordem das colunas
+    1. AO SAIR DO CAMPO PCD (nvgAbd01codigo), com a entidade preenchida:
+       a) Mostra uma janela de "ATENÇÃO" com a observação de uso interno da entidade
+          (abe02obsUsoInt), se houver.
+       b) Verifica títulos vencidos (servlet Silcon.servlet.Buscar_Titulos_Vencidos_Entidade):
+          - Se houver, pergunta se deseja continuar. Não -> cancela a operação.
+          - Sim -> avisa para inserir uma observação, se necessário.
+       c) Em seguida, verifica o limite de crédito (servlet Silcon.servlet.Verificar_Limite_Credito_Entidade):
+          - Se excedido, pergunta se deseja continuar. Não -> cancela a operação.
+          - Sim -> avisa para inserir uma observação, se necessário.
+          - Regra de cálculo (feita no servlet):
+              - Data limite de crédito vencida -> bloqueia.
+              - Saldo devedor = Docs a Receber em aberto (DAA01: abb01quita = 0 AND daa01rp = 0)
+                              + Docs Batch (EAA01: abb10tipoCod = 1 AND eaa01esMov = 1 AND eaa01clasDoc = 1
+                                            AND eaa01cancData IS NULL AND eaa01iSCF = 2)
+              - Saldo devedor > limite -> limite excedido.
+
+    2. AO SAIR DO CAMPO TABELA DE PREÇO (nvgAbe40codigo), se houver itens:
+       pergunta se deseja recalcular; se sim, zera o preço unitário dos itens e aciona
+       o botão "Recalcular Documento".
+
+    3. BOTÃO "IMPRIMIR" + CAMPO "VIAS" (1 a 9), no painel panel7 (a janela aumenta 40px de altura):
+       - Exige que o documento esteja salvo.
+       - Tipo de documento 04 ou 16 -> abre a tela de impressão de documentos (SRF1009) já
+         preenchida (tipo, número, "somente com protocolo" se houver chave NF-e, e
+         "reimpressão" se o documento já foi impresso).
+       - Demais tipos -> gera o PDF pelo relatório do tipo de documento (aah01formRelDoc) e envia
+         direto para a impressora com o número de vias informado (se houver mais de uma
+         impressora, pede para escolher).
+         Exceção: PCD 60026 usa o relatório Silcon.relatorios.srf.SRF_Impressao_Documento_Interno_S_Desc.
+
+    4. BOTÃO "REPLICAR REP ITENS" (painel pnlDados2):
+       copia o Representante 0 do documento (id, código e nome abreviado) para o campo livre
+       (eaa0103json) de todos os itens. Exige o Representante 0 preenchido e itens na spread.
+
+    5. LISTA DE BUSCA (F4) personalizada:
+       - Entidade: Código, Nome, Endereço, Nome Abreviado, Nº Inscrição.
+       - Item: Código, GTIN, Descrição, Fabricante.
+
+    6. SPREAD DE ITENS: reordena as colunas (Descrição, UM, UM Coml, Qtde Coml, Unitário, Total,
+       Total Doc, Total Financ, Entrega, NCM código e NCM descrição).
+
+    7. Desativa o botão de incluir novo endereço de entrega da entidade.
+
+    8. CANCELAR / ESC: pergunta "Deseja realmente sair?"; se não, mantém a tela aberta.
+
+    9. AO SALVAR:
+       - Antes: bloqueia o PCD 60000 para o usuário de id 1904684.
+       - Depois: exibe a mensagem "Documento <número> salvo com sucesso." (fecha em 5 segundos).
  */
 
 package scripts
@@ -91,23 +119,84 @@ public class SRF1002 extends sam.swing.ScriptBase{
 
     @Override
     public void execute(MultitecRootPanel tarefa) {
-        JButton btnIncluirNovoEnderecoEntregaEntidade = getComponente("btnIncluirNovoEnderecoEntregaEntidade");
         this.tarefa = tarefa;
         listaDoCadastro = ((PanelCadastro)tarefa).panelListarCadastro.get();
-        adicionarEventoTabelaPreco();
-        tarefa.getWindow().getJMenuBar().getMnuArquivo().getMniCancelar().addActionListener(mnu -> this.adicionaEventoESC(mnu));
+        alterarWindowLoad();
+        adicionarEventoMenu();
+        reordenarColunas();
+        criarBotoes();
+        adicionarEventosComponentes();
+        criarCampoNumeroVias();
+        desativarBotoes();
+    }
+    private alterarWindowLoad(){
         this.windowLoadOriginal = tarefa.windowLoad ;
         tarefa.windowLoad = {novoWindowLoad()};
-        reordenarColunas();
+    }
+    private void adicionarEventoMenu(){
+        tarefa.getWindow().getJMenuBar().getMnuArquivo().getMniCancelar().addActionListener(mnu -> this.adicionaEventoESC(mnu));
+    }
+    private void adicionarEventosComponentes(){
         adicionaEventoPCD();
+        adicionarEventoTabelaPreco();
+    }
+    private void criarBotoes(){
         adicionaBotaoImprimirDanfe();
-        criarCampoNumeroVias();
-        desativarBotaoIncluirEndereco(btnIncluirNovoEnderecoEntregaEntidade);
+        adicionarBotaoReplicarRepresentantes();
     }
-    private void desativarBotaoIncluirEndereco(JButton btn){
-        desativarBotoes(btn)
+    private void adicionarBotaoReplicarRepresentantes(){
+        JPanel pnlDados2 = getComponente("pnlDados2");
+        JButton btnReplicarRep = new JButton();
+        btnReplicarRep.setBounds(770, 284, 110, 25);
+        btnReplicarRep.setText("Replicar Rep Itens");
+        btnReplicarRep.addActionListener(e -> btnReplicarRepPressed());
+
+        pnlDados2.add(btnReplicarRep)
     }
-    private void desativarBotoes(JButton btn){
+    private void btnReplicarRepPressed(){
+        try{
+            if(!exibirQuestao("Deseja replicar o representante para o itens do documento?")) return;
+            MNavigation nvgAbe01codigoRep0 = getComponente("nvgAbe01codigoRep0");
+            def rep0 = nvgAbe01codigoRep0.getNavigationController().getValue();
+            if(rep0 == null) throw new ValidacaoException("Necessário preencher o representante 0 para replicar.");
+
+            TableMap sprValue = new TableMap();
+            sprValue.put("id_representante", rep0.getAbe01id());
+            sprValue.put("cod_representante", rep0.getAbe01codigo());
+            sprValue.put("nome_representante", rep0.getAbe01na());
+            alterarCamposLivresItens(sprValue);
+        } catch (Exception e){
+            interromper(e.getMessage())
+        }
+    }
+    private void alterarCamposLivresItens(TableMap tm){
+        try {
+            MSpread sprEaa0103s = getComponente("sprEaa0103s");
+            if(sprEaa0103s.getValue().size() == 0) throw new ValidacaoException("Não há itens na spread.");
+
+            for(Eaa0103 eaa0103 in sprEaa0103s.getValue()){
+                TableMap jsonEaa0103 = eaa0103.eaa0103json != null ? eaa0103.eaa0103json : new TableMap();
+                if(tm != null && tm.size() > 0){
+                    jsonEaa0103.put("id_representante",tm.getLong("id_representante"));
+                    jsonEaa0103.put("cod_representante",tm.getString("cod_representante"));
+                    jsonEaa0103.put("nome_representante",tm.getString("nome_representante"));
+                }
+
+                eaa0103.setEaa0103json(jsonEaa0103);
+            }
+
+            sprEaa0103s.refreshAll();
+            exibirInformacao("Itens atualizados com sucesso!")
+        } catch (Exception e) {
+            throw new ValidacaoException(e.getMessage())
+        }
+    }
+    private void desativarBotoes(){
+        JButton btnIncluirNovoEnderecoEntregaEntidade = getComponente("btnIncluirNovoEnderecoEntregaEntidade");
+
+        desativarBotao(btnIncluirNovoEnderecoEntregaEntidade)
+    }
+    private void desativarBotao(JButton btn){
         btn.setEnabled(false);
     }
     private void adicionarEventoTabelaPreco(){
