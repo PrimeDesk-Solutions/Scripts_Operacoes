@@ -17,6 +17,8 @@ public class Script extends sam.swing.ScriptBase{
             MRadioButton rdoDesaprovar = getComponente("rdoDesaprovar");
             String user = obterUsuarioLogado().getAab10user();
 
+            if(user == "MASTER2" || user == "MASTER") return;
+
             if(rdoAprovar.isSelected() && user != "CAROL" && user != "GUILHERME"){
                 throw new ValidacaoException("O usuário logado não tem permissão para aprovar documentos");
             }
